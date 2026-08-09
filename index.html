@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Miei Appunti</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 10px;
+            overflow-x: hidden;
+        }
+        h1 { text-align: center; color: #2c3e50; font-size: 1.5rem; }
+        .card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+            width: 100%;
+        }
+        input, textarea, button, select {
+            width: 100%;
+            max-width: 100%;
+            margin-bottom: 10px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 120px; }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #2980b9; }
+        button:focus-visible, input:focus-visible,
+        textarea:focus-visible, select:focus-visible {
+            outline: 3px solid #2c3e50;
+            outline-offset: 1px;
+        }
+
+        .flex-row {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 0;
+        }
+        @media (min-width: 500px) {
+            .flex-row {
+                flex-direction: row;
+            }
+            .flex-row > * {
+                margin-bottom: 10px;
+            }
+        }
+        .flex-2 { flex: 2; }
+        .flex-1 { flex: 1; }
+
+        .btn-green { background-color: #2ecc71; }
+        .btn-green:hover { background-color: #27ae60; }
+
+        .btn-purple { background-color: #9b59b6; margin-bottom: 10px; }
+        .btn-purple:hover { background-color: #8e44ad; }
+
+        .btn-secondary { background-color: #95a5a6; }
+        .btn-secondary:hover { background-color: #7f8c8d; }
+
+        .btn-cancel { background-color: #e67e22; }
+        .btn-cancel:hover { background-color: #d35400; }
+
+        .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+        .tag {
+            background: #e0e0e0;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            cursor: pointer;
+            word-break: break-word;
+        }
+        .tag.active { background: #3498db; color: white; }
+
+        .note {
+            border-left: 4px solid #3498db;
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            word-break: break-word;
+        }
+        .note.pinned {
+            border-left-color: #f39c12;
+            background: #fffdf6;
+        }
+        .note-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .note-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .category-badge {
+            background-color: #2c3e50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .edited-flag { color: #999; font-size: 11px; font-style: italic; }
+        .note-content {
+            white-space: pre-wrap;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            font-size: 15px;
+        }
+        .note-tags span {
+            display: inline-block;
+            background: #eee;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #555;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        .note-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .note-actions button {
+            width: auto;
+            flex: 1;
+            padding: 8px;
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+        .btn-edit { background: #34495e; }
+        .btn-edit:hover { background: #2c3e50; }
+        .delete-btn { background: #e74c3c; }
+        .delete-btn:hover { background: #c0392b; }
+        .pin-btn {
+            width: auto;
+            background: none;
+            color: #bbb;
+            font-size: 18px;
+            padding: 2px 6px;
+            margin: 0;
+            line-height: 1;
+        }
+        .pin-btn:hover { background: none; color: #f39c12; }
+        .pin-btn.on { color: #f39c12; }
+        .bell-btn {
+            width: auto;
+            background: none;
+            color: #bbb;
+            font-size: 17px;
+            padding: 2px 6px;
+            margin: 0;
+            line-height: 1;
+        }
+        .bell-btn:hover { background: none; color: #2980b9; }
+        .bell-btn.on { color: #2980b9; }
+        .reminder-flag { color: #2980b9; font-size: 11px; font-weight: bold; }
+
+        mark {
+            background-color: #ffeaa7;
+            color: inherit;
+            padding: 0 2px;
+            border-radius: 2px;
+        }
+
+        #messageBox {
+            display: none;
+            background-color: #e74c3c;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #95a5a6;
+            padding: 30px 15px;
+            font-size: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        /* Modali */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 15px;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            text-align: center;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-content a {
+            color: #3498db;
+            text-decoration: underline;
+        }
+        .cat-manage-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .cat-manage-row input {
+            flex: 1;
+            margin-bottom: 0;
+            font-size: 14px;
+            padding: 8px;
+        }
+        .cat-manage-row button {
+            width: auto;
+            margin-bottom: 0;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+
+        .footer-config {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 13px;
+        }
+        .footer-config a {
+            color: #7f8c8d;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .inline-link {
+            display: inline-block;
+            font-size: 13px;
+            color: #7f8c8d;
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        .card h3.card-title { margin: 0 0 8px; font-size: 15px; color: #2c3e50; }
+        .cloud-status {
+            font-size: 13px;
+            color: #7f8c8d;
+            text-align: center;
+            margin: 0 0 10px;
+        }
+
+        /* Header con rotella impostazioni */
+        .app-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 10px 0;
+        }
+        .app-header h1 { margin: 0; }
+        .settings-gear {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: auto;
+            background: none;
+            color: #2c3e50;
+            font-size: 26px;
+            padding: 4px 8px;
+            margin: 0;
+            line-height: 1;
+        }
+        .settings-gear:hover { background: #ecf0f1; }
+
+        .modal-content h4 {
+            text-align: left;
+            margin: 18px 0 8px;
+            font-size: 15px;
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 4px;
+        }
+        .modal-content .section-hint {
+            text-align: left;
+            font-size: 13px;
+            color: #777;
+            line-height: 1.4;
+            margin: 0 0 8px;
+        }
+
+        /* Manuale ad accordion */
+        .accordion-item { border: 1px solid #e5e5e5; border-radius: 6px; margin-bottom: 8px; overflow: hidden; }
+        .accordion-head {
+            width: 100%;
+            text-align: left;
+            background: #f7f9fa;
+            color: #2c3e50;
+            font-size: 15px;
+            padding: 12px;
+            margin: 0;
+            border-radius: 0;
+        }
+        .accordion-head:hover { background: #eef2f4; }
+        .accordion-body {
+            display: none;
+            padding: 12px;
+            text-align: left;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #444;
+        }
+        .accordion-body ul { padding-left: 18px; margin: 6px 0; }
+        .accordion-body li { margin-bottom: 4px; }
+        .accordion-item.open .accordion-body { display: block; }
+
+        /* Contenitore stampabile del manuale (solo in stampa) */
+        #manualPrint { display: none; }
+        @media print {
+            body.print-manual > *:not(#manualPrint) { display: none !important; }
+            body.print-manual #manualPrint {
+                display: block !important;
+                color: #000;
+                font-size: 12pt;
+                line-height: 1.5;
+            }
+            #manualPrint h1 { font-size: 20pt; margin-bottom: 4px; }
+            #manualPrint h2 { font-size: 14pt; margin-top: 18px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+            #manualPrint ul { padding-left: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Modale Richiesta API Key -->
+    <div id="apiKeyModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Configura API Key di Gemini</h3>
+            <p style="font-size: 14px; color: #555; line-height: 1.4;">
+                Vuoi utilizzare le funzioni di organizzazione con l'Intelligenza Artificiale?<br>
+                Inserisci la tua chiave o salta questo passaggio per usare l'app manualmente.<br>
+                Puoi generarla su <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener">Google AI Studio</a>.
+            </p>
+            <input type="text" id="modalApiKeyInput" placeholder="Incolla qui la tua API Key (facoltativo)...">
+            <button onclick="saveApiKey()">Salva e continua</button>
+            <button class="btn-secondary" onclick="skipApiKey()">Salta per ora (usa manualmente)</button>
+        </div>
+    </div>
+
+    <!-- Modale Gestione Categorie -->
+    <div id="categoryModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Gestisci categorie</h3>
+            <p style="font-size: 13px; color: #777; line-height: 1.4;">
+                Rinomina o elimina le categorie. Eliminando una categoria, gli appunti collegati restano senza categoria.
+            </p>
+            <div id="categoryManageList"></div>
+            <button class="btn-secondary" onclick="closeCategoryModal()" style="margin-top:10px;">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Modale Impostazioni -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Impostazioni</h3>
+
+            <h4>Intelligenza Artificiale (Gemini)</h4>
+            <p class="section-hint">
+                Serve solo per la funzione "Aiutami con l'AI". Genera la chiave su
+                <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener">Google AI Studio</a>.
+                Viene salvata solo su questo dispositivo.
+            </p>
+            <input type="text" id="settingsApiKeyInput" placeholder="API Key di Gemini (facoltativa)">
+            <button onclick="saveApiKeyFromSettings()">Salva chiave</button>
+
+            <h4>Backup su file</h4>
+            <p class="section-hint">Salva o ripristina tutti gli appunti tramite un file .json sul dispositivo.</p>
+            <div class="flex-row">
+                <button class="flex-1 btn-secondary" onclick="exportData()">⬇️ Esporta</button>
+                <button class="flex-1 btn-secondary" onclick="document.getElementById('importFile').click()">⬆️ Importa</button>
+            </div>
+            <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(event)">
+
+            <h4>Backup automatico su cloud (JSONBin)</h4>
+            <p class="section-hint">
+                Crea un "bin" gratuito su <a href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a> e
+                incolla Bin ID e Master Key: gli appunti verranno salvati sul cloud a ogni modifica.
+            </p>
+            <p id="cloudStatus" class="cloud-status">Backup automatico non configurato.</p>
+            <input type="text" id="cloudBinInput" placeholder="Bin ID">
+            <input type="text" id="cloudKeyInput" placeholder="Master Key">
+            <button onclick="saveCloudConfig()">Salva configurazione</button>
+            <div id="cloudActions" class="flex-row" style="display:none;">
+                <button class="flex-1 btn-green" onclick="saveToCloud(true)">Salva ora</button>
+                <button class="flex-1 btn-secondary" onclick="loadFromCloud(true)">Carica da cloud</button>
+            </div>
+            <button id="cloudDisconnectBtn" class="btn-secondary" style="display:none;" onclick="disconnectCloud()">Disconnetti cloud</button>
+
+            <h4>Manuale</h4>
+            <p class="section-hint">Guida all'uso dell'app, divisa per sezioni.</p>
+            <div class="flex-row">
+                <button class="flex-1 btn-purple" onclick="openManual()">📖 Apri manuale</button>
+                <button class="flex-1 btn-secondary" onclick="printManual()">⬇️ Scarica in PDF</button>
+            </div>
+
+            <button class="btn-secondary" style="margin-top:14px;" onclick="closeSettings()">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Modale Manuale (accordion per sezioni) -->
+    <div id="manualModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Manuale — I Miei Appunti</h3>
+            <div id="manualAccordion"></div>
+            <div class="flex-row" style="margin-top:12px;">
+                <button class="flex-1 btn-secondary" onclick="printManual()">⬇️ Scarica tutto in PDF</button>
+                <button class="flex-1 btn-secondary" onclick="closeManual()">Chiudi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modale Promemoria (calendario) -->
+    <div id="reminderModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Promemoria nel calendario</h3>
+            <p class="section-hint">
+                Scegli data e ora: verrà creato un evento nel calendario del tuo telefono, che ti
+                avviserà anche con l'app chiusa. Il promemoria è gestito dal calendario, non dall'app.
+            </p>
+            <div class="flex-row">
+                <input type="date" id="reminderDate" class="flex-1">
+                <input type="time" id="reminderTime" class="flex-1">
+            </div>
+            <select id="reminderAlert">
+                <option value="0">Avvisami all'orario scelto</option>
+                <option value="10">10 minuti prima</option>
+                <option value="60">1 ora prima</option>
+                <option value="1440">1 giorno prima</option>
+            </select>
+            <div class="flex-row">
+                <button class="flex-1 btn-green" onclick="downloadReminderICS()">⬇️ Scarica promemoria (.ics)</button>
+                <button class="flex-1" onclick="openGoogleCalendar()">Apri in Google Calendar</button>
+            </div>
+            <button id="reminderRemoveBtn" class="btn-secondary" style="display:none;" onclick="removeReminder()">Rimuovi promemoria dall'appunto</button>
+            <button class="btn-secondary" onclick="closeReminder()">Chiudi</button>
+        </div>
+    </div>
+
+    <div class="app-header">
+        <h1>I Miei Appunti</h1>
+        <button class="settings-gear" title="Impostazioni" onclick="openSettings()">⚙️</button>
+    </div>
+
+    <!-- Area Inserimento -->
+    <div class="card">
+        <div id="messageBox"></div>
+        <textarea id="noteText" placeholder="Scrivi il tuo appunto qui..."></textarea>
+
+        <button class="btn-purple" onclick="askAiToOrganize()">✨ Aiutami con l'AI (organizza appunto)</button>
+
+        <div class="flex-row">
+            <select id="noteCategory" class="flex-2">
+                <!-- Le categorie verranno caricate qui dinamicamente -->
+            </select>
+            <button class="flex-1 btn-green" id="btnToggleCat" onclick="toggleNewCategory()">+ Nuova categoria</button>
+        </div>
+
+        <!-- UI Nascosta per aggiungere una nuova categoria -->
+        <div class="flex-row" id="newCategoryUI" style="display: none;">
+            <input type="text" id="newCategoryName" class="flex-2" placeholder="Nome nuova categoria...">
+            <button class="flex-1 btn-green" onclick="saveNewCategory()">Salva</button>
+        </div>
+
+        <span class="inline-link" onclick="openCategoryModal()">Gestisci categorie</span>
+
+        <input type="text" id="noteTags" placeholder="Etichette (es: urgente, lavoro)">
+        <div class="flex-row">
+            <button class="flex-2" id="saveNoteBtn" onclick="saveNote()">Salva appunto</button>
+            <button class="flex-1 btn-cancel" id="cancelEditBtn" onclick="cancelEdit()" style="display:none;">Annulla modifica</button>
+        </div>
+    </div>
+
+    <!-- Area Ricerca, Filtri e Ordinamento -->
+    <div class="card">
+        <div class="flex-row" style="margin-bottom: 10px;">
+            <input type="text" id="searchInput" class="flex-2" placeholder="Cerca nel testo o nei tag..." onkeyup="filterNotes()">
+        </div>
+        <div class="flex-row">
+            <select id="filterCategory" class="flex-1" onchange="filterNotes()">
+                <!-- Le categorie verranno caricate qui dinamicamente -->
+            </select>
+            <select id="sortOrder" class="flex-1" onchange="filterNotes()">
+                <option value="desc">Più recenti</option>
+                <option value="asc">Meno recenti</option>
+            </select>
+        </div>
+        <div class="tag-list" id="tagFilterList" style="margin-top: 10px;"></div>
+        <button id="archiveToggle" class="btn-secondary" style="margin-top:10px;" onclick="toggleArchiveView()">Vedi archivio</button>
+    </div>
+
+    <!-- Lista Appunti -->
+    <div id="notesContainer"></div>
+
+    <!-- Contenitore del manuale per la stampa in PDF (visibile solo in stampa) -->
+    <div id="manualPrint"></div>
+
+    <script>
+        const GEMINI_MODEL = 'gemini-2.5-flash';
+
+        let apiKey = localStorage.getItem('geminiApiKey') || "";
+        let hasSkippedAi = localStorage.getItem('skippedAi') === 'true';
+        let notes = JSON.parse(localStorage.getItem('myNotes')) || [];
+        let categories = JSON.parse(localStorage.getItem('myCategories')) || ["Lavoro", "Personale", "Studio", "Progetti", "Idee"];
+        let activeTag = null;
+        let editingId = null;
+        let viewMode = 'active'; // 'active' | 'archived'
+        let reminderNoteId = null;
+
+        // --- Stato cloud (JSONBin) ---
+        let binId = localStorage.getItem('jsonbinBinId') || '';
+        let masterKey = localStorage.getItem('jsonbinKey') || '';
+        let cloudSaveTimer = null;
+        let cloudDirty = false;
+        let suppressCloudSave = false;
+        let lastCloudSaveLabel = localStorage.getItem('lastCloudSave') || '';
+
+        // Controllo apertura iniziale per API Key (mostra solo se non salvata e non saltata)
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!apiKey && !hasSkippedAi) {
+                document.getElementById('apiKeyModal').style.display = 'flex';
+            }
+        });
+
+        // --- Utility: escape HTML per evitare rendering rotto/injection ---
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function saveApiKey() {
+            const keyInput = document.getElementById('modalApiKeyInput').value.trim();
+            if (!keyInput) {
+                alert("Inserisci una chiave valida o clicca su 'Salta per ora'.");
+                return;
+            }
+            apiKey = keyInput;
+            localStorage.setItem('geminiApiKey', apiKey);
+            localStorage.removeItem('skippedAi');
+            document.getElementById('apiKeyModal').style.display = 'none';
+            showMessage("API Key salvata con successo!");
+        }
+
+        function skipApiKey() {
+            hasSkippedAi = true;
+            localStorage.setItem('skippedAi', 'true');
+            document.getElementById('apiKeyModal').style.display = 'none';
+        }
+
+        function openApiKeyModal() {
+            document.getElementById('modalApiKeyInput').value = apiKey;
+            document.getElementById('apiKeyModal').style.display = 'flex';
+        }
+
+        function showMessage(msg) {
+            const box = document.getElementById('messageBox');
+            box.innerText = msg;
+            box.style.display = 'block';
+            setTimeout(() => { box.style.display = 'none'; }, 4000);
+        }
+
+        function saveNotes() {
+            localStorage.setItem('myNotes', JSON.stringify(notes));
+            renderNotes();
+            renderTags();
+            scheduleCloudSave();
+        }
+
+        function saveCategoriesState() {
+            localStorage.setItem('myCategories', JSON.stringify(categories));
+            renderCategories();
+            scheduleCloudSave();
+        }
+
+        function renderCategories() {
+            const selectAdd = document.getElementById('noteCategory');
+            const selectFilter = document.getElementById('filterCategory');
+            const prevAdd = selectAdd.value;
+            const prevFilter = selectFilter.value;
+
+            selectAdd.innerHTML = '<option value="">-- Seleziona categoria --</option>';
+            selectFilter.innerHTML = '<option value="">Tutte le categorie</option>';
+
+            categories.forEach(cat => {
+                const optAdd = document.createElement('option');
+                optAdd.value = cat;
+                optAdd.innerText = cat;
+                selectAdd.appendChild(optAdd);
+
+                const optFilter = document.createElement('option');
+                optFilter.value = cat;
+                optFilter.innerText = cat;
+                selectFilter.appendChild(optFilter);
+            });
+
+            if (categories.includes(prevAdd)) selectAdd.value = prevAdd;
+            if (categories.includes(prevFilter)) selectFilter.value = prevFilter;
+        }
+
+        function toggleNewCategory() {
+            const ui = document.getElementById('newCategoryUI');
+            const btn = document.getElementById('btnToggleCat');
+            if (ui.style.display === 'none') {
+                ui.style.display = 'flex';
+                btn.innerText = 'Annulla';
+                btn.style.backgroundColor = '#e74c3c';
+            } else {
+                ui.style.display = 'none';
+                btn.innerText = '+ Nuova categoria';
+                btn.style.backgroundColor = '#2ecc71';
+                document.getElementById('newCategoryName').value = '';
+            }
+        }
+
+        function saveNewCategory() {
+            const newCat = document.getElementById('newCategoryName').value.trim();
+            if (!newCat) {
+                showMessage("Inserisci un nome per la categoria!");
+                return;
+            }
+            if (categories.includes(newCat)) {
+                showMessage("Questa categoria esiste già!");
+                return;
+            }
+            categories.push(newCat);
+            saveCategoriesState();
+            toggleNewCategory();
+            document.getElementById('noteCategory').value = newCat;
+        }
+
+        // --- Gestione categorie (rinomina / elimina) ---
+        function openCategoryModal() {
+            renderCategoryManageList();
+            document.getElementById('categoryModal').style.display = 'flex';
+        }
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').style.display = 'none';
+        }
+        function renderCategoryManageList() {
+            const list = document.getElementById('categoryManageList');
+            list.innerHTML = '';
+            if (categories.length === 0) {
+                list.innerHTML = '<p style="color:#95a5a6;font-size:14px;">Nessuna categoria.</p>';
+                return;
+            }
+            categories.forEach((cat, index) => {
+                const row = document.createElement('div');
+                row.className = 'cat-manage-row';
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = cat;
+                const renameBtn = document.createElement('button');
+                renameBtn.className = 'btn-green';
+                renameBtn.innerText = 'Rinomina';
+                renameBtn.onclick = () => renameCategory(index, input.value.trim());
+                const delBtn = document.createElement('button');
+                delBtn.className = 'delete-btn';
+                delBtn.innerText = 'Elimina';
+                delBtn.onclick = () => deleteCategory(index);
+                row.appendChild(input);
+                row.appendChild(renameBtn);
+                row.appendChild(delBtn);
+                list.appendChild(row);
+            });
+        }
+        function renameCategory(index, newName) {
+            const oldName = categories[index];
+            if (!newName) { showMessage("Il nome non può essere vuoto."); return; }
+            if (newName === oldName) return;
+            if (categories.includes(newName)) { showMessage("Esiste già una categoria con questo nome."); return; }
+            categories[index] = newName;
+            notes.forEach(n => { if (n.category === oldName) n.category = newName; });
+            saveCategoriesState();
+            saveNotes();
+            renderCategoryManageList();
+            showMessage("Categoria rinominata.");
+        }
+        function deleteCategory(index) {
+            const name = categories[index];
+            if (!confirm(`Eliminare la categoria "${name}"? Gli appunti collegati resteranno senza categoria.`)) return;
+            categories.splice(index, 1);
+            notes.forEach(n => { if (n.category === name) n.category = ''; });
+            saveCategoriesState();
+            saveNotes();
+            renderCategoryManageList();
+            showMessage("Categoria eliminata.");
+        }
+
+        async function callGeminiApi(promptText, schema, retries = 5, delay = 1000) {
+            if (!apiKey) {
+                openApiKeyModal();
+                throw new Error('API Key mancante');
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                }
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error('Errore di rete');
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error('Risposta vuota');
+
+                    return JSON.parse(text);
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        async function askAiToOrganize() {
+            if (!apiKey) {
+                openApiKeyModal();
+                return;
+            }
+
+            const rawText = document.getElementById('noteText').value.trim();
+            if (!rawText) {
+                showMessage("Scrivi prima del testo nell'appunto da far analizzare all'AI!");
+                return;
+            }
+
+            showMessage("L'AI sta analizzando il tuo appunto...");
+
+            const existingCats = categories.join(", ");
+            const prompt = `Analizza questo appunto: "${rawText}".
+            Le categorie disponibili esistenti sono: [${existingCats}].
+            Se nessuna di queste si adatta perfettamente, puoi crearne una nuova e breve.
+            Estrai e restituisci in formato JSON:
+            1. 'cleanedText': Il testo pulito e formattato chiaramente (eventualmente organizzato in punti elenco se utile).
+            2. 'category': La categoria più adatta tra quelle elencate o una nuova stringa concisa.
+            3. 'tags': Un array di 2 o 3 stringhe brevi di tag pertinenti (senza cancelletto).`;
+
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    cleanedText: { type: "STRING" },
+                    category: { type: "STRING" },
+                    tags: {
+                        type: "ARRAY",
+                        items: { type: "STRING" }
+                    }
+                },
+                required: ["cleanedText", "category", "tags"]
+            };
+
+            try {
+                const data = await callGeminiApi(prompt, schema);
+
+                document.getElementById('noteText').value = data.cleanedText;
+
+                if (data.category && !categories.includes(data.category)) {
+                    categories.push(data.category);
+                    saveCategoriesState();
+                }
+                document.getElementById('noteCategory').value = data.category || '';
+
+                if (data.tags && data.tags.length > 0) {
+                    document.getElementById('noteTags').value = data.tags.join(', ');
+                }
+
+                showMessage("Appunto organizzato con successo dall'AI!");
+            } catch (err) {
+                if (err.message !== 'API Key mancante') {
+                    showMessage("Si è verificato un errore di connessione con l'AI.");
+                }
+            }
+        }
+
+        function currentTimestampLabel() {
+            return new Date().toLocaleDateString() + ' ' +
+                   new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        }
+
+        function saveNote() {
+            const text = document.getElementById('noteText').value.trim();
+            const category = document.getElementById('noteCategory').value;
+            const tagsInput = document.getElementById('noteTags').value;
+
+            if (!text) {
+                showMessage("L'appunto è vuoto. Inserisci del testo!");
+                return;
+            }
+
+            const tags = tagsInput.split(',')
+                                  .map(tag => tag.trim().toLowerCase())
+                                  .filter(tag => tag !== "");
+
+            if (editingId !== null) {
+                // Aggiorna appunto esistente
+                const note = notes.find(n => n.id === editingId);
+                if (note) {
+                    note.text = text;
+                    note.category = category;
+                    note.tags = tags;
+                    note.edited = true;
+                    note.editedDate = currentTimestampLabel();
+                }
+                cancelEdit();
+                saveNotes();
+                showMessage("Appunto aggiornato.");
+                return;
+            }
+
+            // Nuovo appunto
+            notes.unshift({
+                id: Date.now(),
+                text: text,
+                category: category,
+                tags: tags,
+                pinned: false,
+                date: currentTimestampLabel(),
+                timestamp: Date.now()
+            });
+
+            clearForm();
+            saveNotes();
+        }
+
+        function clearForm() {
+            document.getElementById('noteText').value = '';
+            document.getElementById('noteCategory').value = '';
+            document.getElementById('noteTags').value = '';
+        }
+
+        function editNote(id) {
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            editingId = id;
+            document.getElementById('noteText').value = note.text;
+            document.getElementById('noteCategory').value = categories.includes(note.category) ? note.category : '';
+            document.getElementById('noteTags').value = (note.tags || []).join(', ');
+            document.getElementById('saveNoteBtn').innerText = 'Aggiorna appunto';
+            document.getElementById('cancelEditBtn').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelEdit() {
+            editingId = null;
+            clearForm();
+            document.getElementById('saveNoteBtn').innerText = 'Salva appunto';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+        }
+
+        function deleteNote(id) {
+            if (!confirm("Eliminare definitivamente questo appunto?")) return;
+            if (editingId === id) cancelEdit();
+            notes = notes.filter(n => n.id !== id);
+            saveNotes();
+        }
+
+        function togglePin(id) {
+            const note = notes.find(n => n.id === id);
+            if (note) {
+                note.pinned = !note.pinned;
+                saveNotes();
+            }
+        }
+
+        function archiveNote(id) {
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            note.archived = true;
+            note.pinned = false; // un appunto archiviato non resta fissato in alto
+            if (editingId === id) cancelEdit();
+            saveNotes();
+            showMessage("Appunto archiviato.");
+        }
+
+        function unarchiveNote(id) {
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            note.archived = false;
+            saveNotes();
+            showMessage("Appunto ripristinato.");
+        }
+
+        function toggleArchiveView() {
+            viewMode = viewMode === 'active' ? 'archived' : 'active';
+            renderNotes();
+        }
+
+        function toggleTagFilter(tag) {
+            activeTag = activeTag === tag ? null : tag;
+            renderTags();
+            filterNotes();
+        }
+
+        function renderTags() {
+            const allTags = new Set();
+            notes.forEach(n => {
+                if (n.tags) {
+                    n.tags.forEach(t => allTags.add(t));
+                }
+            });
+
+            // Se il tag attivo non esiste più, resettalo
+            if (activeTag && !allTags.has(activeTag)) activeTag = null;
+
+            const tagContainer = document.getElementById('tagFilterList');
+            tagContainer.innerHTML = '';
+
+            Array.from(allTags).sort().forEach(tag => {
+                const el = document.createElement('span');
+                el.className = `tag ${activeTag === tag ? 'active' : ''}`;
+                el.innerText = tag;
+                el.onclick = () => toggleTagFilter(tag);
+                tagContainer.appendChild(el);
+            });
+        }
+
+        function filterNotes() {
+            renderNotes();
+        }
+
+        function highlightText(text, query) {
+            const escaped = escapeHtml(text);
+            if (!query) return escaped;
+            const escapedQuery = escapeHtml(query).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regex = new RegExp(`(${escapedQuery})`, 'gi');
+            return escaped.replace(regex, '<mark>$1</mark>');
+        }
+
+        function renderNotes() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const catFilter = document.getElementById('filterCategory').value;
+            const sortOrder = document.getElementById('sortOrder').value;
+            const container = document.getElementById('notesContainer');
+            container.innerHTML = '';
+
+            // Aggiorna il pulsante archivio con il conteggio
+            const archivedCount = notes.filter(n => n.archived).length;
+            const toggleBtn = document.getElementById('archiveToggle');
+            if (viewMode === 'archived') {
+                toggleBtn.innerText = '← Torna agli appunti attivi';
+            } else {
+                toggleBtn.innerText = `Vedi archivio (${archivedCount})`;
+            }
+
+            let filteredNotes = notes.filter(n => {
+                const inCurrentView = viewMode === 'archived' ? n.archived : !n.archived;
+                if (!inCurrentView) return false;
+                const matchesText = n.text.toLowerCase().includes(query) || (n.tags && n.tags.some(t => t.includes(query)));
+                const matchesTag = activeTag ? (n.tags && n.tags.includes(activeTag)) : true;
+                const matchesCat = catFilter ? n.category === catFilter : true;
+
+                return matchesText && matchesTag && matchesCat;
+            });
+
+            filteredNotes.sort((a, b) => {
+                const pinDiff = (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+                if (pinDiff !== 0) return pinDiff;
+                return sortOrder === 'asc' ? a.timestamp - b.timestamp : b.timestamp - a.timestamp;
+            });
+
+            if (filteredNotes.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'empty-state';
+                if (viewMode === 'archived') {
+                    empty.innerText = archivedCount === 0
+                        ? "L'archivio è vuoto. Archivia un appunto per conservarlo senza tenerlo tra gli attivi."
+                        : "Nessun appunto archiviato corrisponde alla ricerca o ai filtri.";
+                } else if (notes.filter(n => !n.archived).length === 0) {
+                    empty.innerText = "Non hai appunti attivi. Scrivine uno qui sopra per iniziare.";
+                } else {
+                    empty.innerText = "Nessun appunto corrisponde alla ricerca o ai filtri.";
+                }
+                container.appendChild(empty);
+                return;
+            }
+
+            filteredNotes.forEach(n => {
+                const div = document.createElement('div');
+                div.className = 'note' + (n.pinned ? ' pinned' : '');
+
+                const categoryBadge = n.category ? `<span class="category-badge">${escapeHtml(n.category)}</span>` : '';
+                const tagsHtml = (n.tags || []).map(t => `<span>#${escapeHtml(t)}</span>`).join('');
+                const highlightedContent = highlightText(n.text, query);
+                const editedFlag = n.edited ? `<span class="edited-flag">· modificato</span>` : '';
+                const reminderFlag = n.reminderAt ? `<span class="reminder-flag">🔔 ${formatReminderShort(n.reminderAt)}</span>` : '';
+
+                // Il pin e la campanella hanno senso solo tra gli appunti attivi
+                const pinButton = viewMode === 'archived' ? '' :
+                    `<button class="pin-btn ${n.pinned ? 'on' : ''}" title="${n.pinned ? 'Rimuovi dai fissati' : 'Fissa in alto'}" onclick="togglePin(${n.id})">📌</button>`;
+                const bellButton = viewMode === 'archived' ? '' :
+                    `<button class="bell-btn ${n.reminderAt ? 'on' : ''}" title="Imposta promemoria nel calendario" onclick="openReminder(${n.id})">🔔</button>`;
+
+                // Azioni diverse a seconda della vista
+                const actions = viewMode === 'archived'
+                    ? `<button class="btn-green" onclick="unarchiveNote(${n.id})">Ripristina</button>
+                       <button class="delete-btn" onclick="deleteNote(${n.id})">Elimina</button>`
+                    : `<button class="btn-edit" onclick="editNote(${n.id})">Modifica</button>
+                       <button class="btn-secondary" onclick="archiveNote(${n.id})">Archivia</button>
+                       <button class="delete-btn" onclick="deleteNote(${n.id})">Elimina</button>`;
+
+                div.innerHTML = `
+                    <div class="note-header">
+                        <div class="note-meta">
+                            <small style="color: #999;">${escapeHtml(n.date)}</small>
+                            ${editedFlag}
+                            ${reminderFlag}
+                        </div>
+                        <div class="note-meta">
+                            ${categoryBadge}
+                            ${bellButton}
+                            ${pinButton}
+                        </div>
+                    </div>
+                    <div class="note-content">${highlightedContent}</div>
+                    <div class="note-tags">${tagsHtml}</div>
+                    <div class="note-actions">
+                        ${actions}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // --- Backup: esporta / importa ---
+        function exportData() {
+            const data = {
+                app: "I Miei Appunti",
+                version: 1,
+                exportedAt: new Date().toISOString(),
+                notes: notes,
+                categories: categories
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `appunti-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage("Backup esportato.");
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!Array.isArray(data.notes)) throw new Error('formato non valido');
+
+                    const replace = confirm(
+                        "OK = SOSTITUISCI tutti gli appunti attuali con quelli del backup.\n" +
+                        "Annulla = UNISCI il backup agli appunti esistenti."
+                    );
+
+                    if (replace) {
+                        notes = data.notes;
+                        if (Array.isArray(data.categories)) categories = data.categories;
+                    } else {
+                        const existingIds = new Set(notes.map(n => n.id));
+                        data.notes.forEach(n => { if (!existingIds.has(n.id)) notes.push(n); });
+                        (data.categories || []).forEach(c => { if (!categories.includes(c)) categories.push(c); });
+                    }
+
+                    saveCategoriesState();
+                    saveNotes();
+                    showMessage("Backup importato con successo.");
+                } catch (err) {
+                    showMessage("File di backup non valido.");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // --- Cloud (JSONBin): configurazione + sincronizzazione ---
+        function cloudConfigured() { return Boolean(binId && masterKey); }
+
+        function renderCloudCard() {
+            const status = document.getElementById('cloudStatus');
+            const actions = document.getElementById('cloudActions');
+            const disconnectBtn = document.getElementById('cloudDisconnectBtn');
+            if (cloudConfigured()) {
+                actions.style.display = 'flex';
+                disconnectBtn.style.display = 'block';
+                status.innerText = lastCloudSaveLabel
+                    ? `Cloud attivo · ultimo salvataggio: ${lastCloudSaveLabel}`
+                    : 'Cloud attivo · nessun salvataggio ancora';
+            } else {
+                actions.style.display = 'none';
+                disconnectBtn.style.display = 'none';
+                status.innerText = 'Backup automatico non configurato.';
+            }
+        }
+
+        function saveCloudConfig() {
+            binId = document.getElementById('cloudBinInput').value.trim();
+            masterKey = document.getElementById('cloudKeyInput').value.trim();
+            localStorage.setItem('jsonbinBinId', binId);
+            localStorage.setItem('jsonbinKey', masterKey);
+            renderCloudCard();
+            if (cloudConfigured()) {
+                showMessage('Cloud configurato.');
+                checkCloudOnStart();
+            }
+        }
+
+        function disconnectCloud() {
+            if (!confirm('Disconnettere il backup su cloud? I dati sul cloud restano, ma non verranno più aggiornati da questo dispositivo.')) return;
+            binId = '';
+            masterKey = '';
+            localStorage.removeItem('jsonbinBinId');
+            localStorage.removeItem('jsonbinKey');
+            document.getElementById('cloudBinInput').value = '';
+            document.getElementById('cloudKeyInput').value = '';
+            renderCloudCard();
+            showMessage('Cloud disconnesso.');
+        }
+
+        function cloudErrorMessage(status) {
+            if (status === 401) return 'Chiave (Master Key) non valida.';
+            if (status === 404) return 'Bin ID non trovato.';
+            if (status === 429) return 'Troppe richieste al cloud, riprova tra poco.';
+            return 'Errore di comunicazione con il cloud.';
+        }
+
+        function scheduleCloudSave() {
+            if (!cloudConfigured() || suppressCloudSave) return;
+            cloudDirty = true;
+            document.getElementById('cloudStatus').innerText = 'Modifiche non salvate sul cloud…';
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(() => saveToCloud(false), 2000);
+        }
+
+        async function saveToCloud(manual) {
+            if (!cloudConfigured()) { if (manual) openSettings(); return; }
+            clearTimeout(cloudSaveTimer);
+            try {
+                document.getElementById('cloudStatus').innerText = 'Salvataggio su cloud…';
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': masterKey },
+                    body: JSON.stringify({ notes, categories, updatedAt: new Date().toISOString() })
+                });
+                if (!res.ok) throw { status: res.status };
+                cloudDirty = false;
+                lastCloudSaveLabel = currentTimestampLabel();
+                localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
+                renderCloudCard();
+                if (manual) showMessage('Salvato sul cloud.');
+            } catch (err) {
+                showMessage(cloudErrorMessage(err && err.status));
+                renderCloudCard();
+            }
+        }
+
+        async function loadFromCloud(manual) {
+            if (!cloudConfigured()) { openSettings(); return; }
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+                    headers: { 'X-Master-Key': masterKey }
+                });
+                if (!res.ok) throw { status: res.status };
+                const json = await res.json();
+                const record = json.record || {};
+                if (!Array.isArray(record.notes)) { showMessage('Il cloud non contiene appunti validi.'); return; }
+                if (manual && !confirm('Sostituire gli appunti locali con quelli del cloud?')) return;
+                suppressCloudSave = true;
+                notes = record.notes;
+                if (Array.isArray(record.categories)) categories = record.categories;
+                saveCategoriesState();
+                saveNotes();
+                suppressCloudSave = false;
+                showMessage('Appunti caricati dal cloud.');
+            } catch (err) {
+                showMessage(cloudErrorMessage(err && err.status));
+            }
+        }
+
+        // Confronto all'avvio: non sovrascrive in silenzio
+        async function checkCloudOnStart() {
+            if (!cloudConfigured()) return;
+            try {
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+                    headers: { 'X-Master-Key': masterKey }
+                });
+                if (!res.ok) return;
+                const json = await res.json();
+                const record = json.record || {};
+                if (!Array.isArray(record.notes)) return;
+                const cloudStr = JSON.stringify({ notes: record.notes, categories: record.categories || [] });
+                const localStr = JSON.stringify({ notes, categories });
+                if (cloudStr !== localStr) {
+                    if (confirm('I dati sul cloud sono diversi da quelli su questo dispositivo. Vuoi caricare la versione del cloud?')) {
+                        loadFromCloud(false);
+                    }
+                }
+            } catch (err) { /* all'avvio si resta silenziosi */ }
+        }
+
+        // Avviso se si chiude con modifiche non ancora salvate sul cloud
+        window.addEventListener('beforeunload', (e) => {
+            if (cloudConfigured() && cloudDirty) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+
+        // --- Impostazioni ---
+        function openSettings() {
+            document.getElementById('settingsApiKeyInput').value = apiKey;
+            document.getElementById('cloudBinInput').value = binId;
+            document.getElementById('cloudKeyInput').value = masterKey;
+            renderCloudCard();
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+        function saveApiKeyFromSettings() {
+            apiKey = document.getElementById('settingsApiKeyInput').value.trim();
+            if (apiKey) {
+                localStorage.setItem('geminiApiKey', apiKey);
+                localStorage.removeItem('skippedAi');
+                showMessage('Chiave Gemini salvata.');
+            } else {
+                localStorage.removeItem('geminiApiKey');
+                showMessage('Chiave Gemini rimossa.');
+            }
+        }
+
+        // --- Manuale ---
+        const MANUAL_SECTIONS = [
+            { title: "1. A cosa serve", body: `
+                <p>"I Miei Appunti" è un blocco note personale per non dimenticare cose da fare o da tenere presente. I dati restano su questo dispositivo (nel browser); puoi salvarli su file o su cloud per non perderli.</p>` },
+            { title: "2. Creare un appunto", body: `
+                <ul>
+                    <li>Scrivi il testo nel riquadro in alto.</li>
+                    <li>Scegli una <b>categoria</b> (facoltativa) e aggiungi delle <b>etichette</b> separate da virgola (es: urgente, lavoro).</li>
+                    <li>Premi <b>Salva appunto</b>.</li>
+                </ul>` },
+            { title: "3. Organizzare con l'AI (Gemini)", body: `
+                <p>Il pulsante <b>✨ Aiutami con l'AI</b> pulisce il testo e propone categoria ed etichette. Richiede una chiave Gemini, da inserire in Impostazioni (⚙️). Senza chiave, l'app funziona normalmente in modo manuale.</p>` },
+            { title: "4. Categorie", body: `
+                <ul>
+                    <li><b>+ Nuova categoria</b> per aggiungerne una.</li>
+                    <li><b>Gestisci categorie</b> per rinominarle o eliminarle. Eliminando una categoria, gli appunti collegati restano senza categoria.</li>
+                </ul>` },
+            { title: "5. Cercare e filtrare", body: `
+                <ul>
+                    <li><b>Ricerca</b>: cerca nel testo e nelle etichette.</li>
+                    <li><b>Categoria</b> e <b>ordinamento</b> (più recenti / meno recenti).</li>
+                    <li><b>Etichette</b>: tocca un'etichetta per filtrare; toccala di nuovo per togliere il filtro.</li>
+                </ul>` },
+            { title: "6. Fissare in alto (📌)", body: `
+                <p>L'icona 📌 su un appunto lo fissa in cima alla lista. Utile per le cose più importanti. Toccala di nuovo per rimuovere il fissaggio.</p>` },
+            { title: "7. Promemoria nel calendario (🔔)", body: `
+                <ul>
+                    <li>La <b>🔔</b> su un appunto apre la finestra del promemoria: scegli <b>data</b>, <b>ora</b> e quando essere avvisato (all'orario, 10 minuti, 1 ora o 1 giorno prima).</li>
+                    <li><b>Scarica promemoria (.ics)</b>: crea un evento da aprire nel calendario del telefono; contiene l'avviso e funziona offline.</li>
+                    <li><b>Apri in Google Calendar</b>: apre l'evento già compilato (l'avviso preciso, però, conviene impostarlo con il file .ics).</li>
+                    <li>L'avviso arriva dal <b>calendario del telefono</b>, anche con l'app chiusa: l'app crea solo l'evento.</li>
+                    <li>Sull'appunto compare un badge 🔔 con data e ora; puoi togliere il promemoria dall'appunto senza toccare l'evento già nel calendario.</li>
+                </ul>` },
+            { title: "8. Modificare un appunto", body: `
+                <p>Premi <b>Modifica</b>: testo, categoria ed etichette tornano nel riquadro in alto. Il pulsante diventa <b>Aggiorna appunto</b> (o <b>Annulla modifica</b>). Gli appunti modificati mostrano "· modificato".</p>` },
+            { title: "9. Archiviare e ripristinare", body: `
+                <ul>
+                    <li><b>Archivia</b> nasconde l'appunto dalla lista principale ma lo conserva.</li>
+                    <li><b>Vedi archivio (N)</b> mostra gli archiviati; da lì puoi <b>Ripristinare</b> o eliminare.</li>
+                </ul>` },
+            { title: "10. Eliminare", body: `
+                <p><b>Elimina</b> cancella l'appunto in modo definitivo (con conferma). Per non perderlo davvero, tienilo in archivio o fai un backup prima.</p>` },
+            { title: "11. Backup su file", body: `
+                <p>In Impostazioni (⚙️) → <b>Esporta</b> scarica un file .json con tutti gli appunti; <b>Importa</b> lo ricarica, scegliendo se sostituire o unire ai dati esistenti.</p>` },
+            { title: "12. Backup automatico su cloud (JSONBin)", body: `
+                <ul>
+                    <li>Crea un "bin" gratuito su jsonbin.io e ottieni <b>Bin ID</b> e <b>Master Key</b>.</li>
+                    <li>Inseriscili in Impostazioni → <b>Salva configurazione</b>.</li>
+                    <li>Da quel momento gli appunti si salvano sul cloud a ogni modifica. All'avvio, se il cloud è diverso dal dispositivo, l'app chiede se caricare la versione cloud.</li>
+                    <li><b>Salva ora</b> / <b>Carica da cloud</b> per farlo manualmente; <b>Disconnetti cloud</b> per interrompere.</li>
+                </ul>` },
+            { title: "13. Note e privacy", body: `
+                <p>Gli appunti e la chiave Gemini restano su questo dispositivo. Se svuoti i dati del browser, li perdi: usa i backup. La chiave e le credenziali cloud non vengono condivise con nessuno tranne i rispettivi servizi (Google / JSONBin) quando le usi.</p>` },
+            { title: "14. Problemi frequenti", body: `
+                <ul>
+                    <li><b>L'AI non risponde</b>: controlla la chiave Gemini in Impostazioni.</li>
+                    <li><b>Errore cloud 401</b>: Master Key errata. <b>404</b>: Bin ID errato. <b>429</b>: troppe richieste, riprova più tardi.</li>
+                    <li><b>Ho perso un appunto</b>: controlla l'archivio, oppure importa un backup.</li>
+                    <li><b>Il promemoria non mi avvisa</b>: l'avviso è gestito dal calendario, non dall'app; assicurati di aver aggiunto l'evento al calendario. Con Google Calendar l'avviso preciso va impostato usando il file .ics.</li>
+                </ul>` }
+        ];
+
+        let manualBuilt = false;
+        function buildManual() {
+            const acc = document.getElementById('manualAccordion');
+            acc.innerHTML = '';
+            MANUAL_SECTIONS.forEach((sec, i) => {
+                const item = document.createElement('div');
+                item.className = 'accordion-item';
+                const head = document.createElement('button');
+                head.className = 'accordion-head';
+                head.innerText = sec.title;
+                head.onclick = () => item.classList.toggle('open');
+                const body = document.createElement('div');
+                body.className = 'accordion-body';
+                body.innerHTML = sec.body;
+                item.appendChild(head);
+                item.appendChild(body);
+                acc.appendChild(item);
+            });
+            manualBuilt = true;
+        }
+        function openManual() {
+            if (!manualBuilt) buildManual();
+            closeSettings();
+            document.getElementById('manualModal').style.display = 'flex';
+        }
+        function closeManual() {
+            document.getElementById('manualModal').style.display = 'none';
+        }
+
+        function printManual() {
+            const target = document.getElementById('manualPrint');
+            let html = `<h1>I Miei Appunti — Manuale</h1>`;
+            MANUAL_SECTIONS.forEach(sec => {
+                html += `<h2>${sec.title}</h2>${sec.body}`;
+            });
+            target.innerHTML = html;
+            document.body.classList.add('print-manual');
+            window.print();
+            // Rimuove la classe dopo la stampa
+            setTimeout(() => document.body.classList.remove('print-manual'), 500);
+        }
+
+        // --- Promemoria (calendario) ---
+        function pad2(n) { return String(n).padStart(2, '0'); }
+
+        function toICSUTC(d) {
+            return d.getUTCFullYear().toString()
+                + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) + 'T'
+                + pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
+        }
+
+        function formatReminderShort(iso) {
+            const d = new Date(iso);
+            return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+
+        function reminderTitle(note) {
+            const firstLine = (note.text || '').split('\n')[0].trim();
+            const t = firstLine || 'Promemoria';
+            return t.length > 80 ? t.slice(0, 77) + '…' : t;
+        }
+
+        function icsEscape(s) {
+            return String(s)
+                .replace(/\\/g, '\\\\')
+                .replace(/;/g, '\\;')
+                .replace(/,/g, '\\,')
+                .replace(/\r?\n/g, '\\n');
+        }
+
+        function openReminder(id) {
+            reminderNoteId = id;
+            const note = notes.find(n => n.id === id);
+            let d;
+            if (note && note.reminderAt) {
+                d = new Date(note.reminderAt);
+            } else {
+                d = new Date(Date.now() + 60 * 60 * 1000); // fra un'ora
+                d.setMinutes(0, 0, 0);
+            }
+            document.getElementById('reminderDate').value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+            document.getElementById('reminderTime').value = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+            document.getElementById('reminderRemoveBtn').style.display = (note && note.reminderAt) ? 'block' : 'none';
+            document.getElementById('reminderModal').style.display = 'flex';
+        }
+
+        function closeReminder() {
+            document.getElementById('reminderModal').style.display = 'none';
+            reminderNoteId = null;
+        }
+
+        function getReminderDateTime() {
+            const dateVal = document.getElementById('reminderDate').value;
+            const timeVal = document.getElementById('reminderTime').value;
+            if (!dateVal || !timeVal) { showMessage('Scegli data e ora.'); return null; }
+            const dt = new Date(`${dateVal}T${timeVal}`);
+            if (isNaN(dt.getTime())) { showMessage('Data od ora non valide.'); return null; }
+            return dt;
+        }
+
+        function downloadReminderICS() {
+            const note = notes.find(n => n.id === reminderNoteId);
+            if (!note) return;
+            const dt = getReminderDateTime();
+            if (!dt) return;
+            const end = new Date(dt.getTime() + 30 * 60 * 1000);
+            const alertMin = parseInt(document.getElementById('reminderAlert').value, 10) || 0;
+            const title = reminderTitle(note);
+            const uid = `${note.id}-${Date.now()}@imieiappunti`;
+
+            const ics = [
+                'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//I Miei Appunti//IT', 'CALSCALE:GREGORIAN',
+                'BEGIN:VEVENT',
+                `UID:${uid}`,
+                `DTSTAMP:${toICSUTC(new Date())}`,
+                `DTSTART:${toICSUTC(dt)}`,
+                `DTEND:${toICSUTC(end)}`,
+                `SUMMARY:${icsEscape(title)}`,
+                `DESCRIPTION:${icsEscape(note.text || '')}`,
+                'BEGIN:VALARM',
+                `TRIGGER:-PT${alertMin}M`,
+                'ACTION:DISPLAY',
+                `DESCRIPTION:${icsEscape(title)}`,
+                'END:VALARM',
+                'END:VEVENT', 'END:VCALENDAR'
+            ].join('\r\n');
+
+            const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `promemoria-${toICSUTC(dt).slice(0, 8)}.ics`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            note.reminderAt = dt.toISOString();
+            saveNotes();
+            closeReminder();
+            showMessage('Promemoria creato: aprilo per aggiungerlo al calendario.');
+        }
+
+        function openGoogleCalendar() {
+            const note = notes.find(n => n.id === reminderNoteId);
+            if (!note) return;
+            const dt = getReminderDateTime();
+            if (!dt) return;
+            const end = new Date(dt.getTime() + 30 * 60 * 1000);
+            const title = reminderTitle(note);
+            const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+                + '&text=' + encodeURIComponent(title)
+                + '&dates=' + toICSUTC(dt) + '/' + toICSUTC(end)
+                + '&details=' + encodeURIComponent(note.text || '');
+            window.open(url, '_blank');
+
+            note.reminderAt = dt.toISOString();
+            saveNotes();
+            closeReminder();
+        }
+
+        function removeReminder() {
+            const note = notes.find(n => n.id === reminderNoteId);
+            if (note) { delete note.reminderAt; saveNotes(); }
+            closeReminder();
+            showMessage("Promemoria rimosso dall'appunto. L'evento già nel calendario resta.");
+        }
+
+        // Chiudi le modali cliccando sullo sfondo scuro
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', e => {
+                if (e.target === overlay && overlay.id !== 'apiKeyModal') {
+                    overlay.style.display = 'none';
+                }
+            });
+        });
+
+        renderCategories();
+        renderNotes();
+        renderTags();
+        renderCloudCard();
+        checkCloudOnStart();
+    </script>
+</body>
+</html>
