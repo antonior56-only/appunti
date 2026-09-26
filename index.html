@@ -650,6 +650,8 @@
         let dictationError = false;
         let discardDictationResults = false;
         let committedSpeechResults = 0;
+        let lastFinalSpeech = '';
+        let lastFinalSpeechAt = 0;
 
         function setDictationStatus(message) {
             document.getElementById('dictationStatus').textContent = message;
@@ -667,6 +669,27 @@
             const position = field.value.length;
             const prefix = field.value && !/\s$/.test(field.value) ? ' ' : '';
             field.setRangeText(prefix + text, position, position, 'end');
+        }
+        function speechWords(text) {
+            return text.trim().split(/\s+/).filter(Boolean);
+        }
+        function normalizeSpeechWord(word) {
+            return word.toLocaleLowerCase('it-IT').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+        }
+        function appendNewSpeech(spokenText) {
+            const words = speechWords(spokenText);
+            if (!words.length) return;
+            const previous = speechWords(lastFinalSpeech);
+            let newWords = words;
+            const recentlyCommitted = Date.now() - lastFinalSpeechAt < 8000;
+            if (previous.length && previous.length <= words.length &&
+                (recentlyCommitted || previous.length < words.length) &&
+                previous.every((word, index) => normalizeSpeechWord(word) === normalizeSpeechWord(words[index]))) {
+                newWords = words.slice(previous.length);
+            }
+            if (newWords.length) appendRecognizedText(newWords.join(' '));
+            lastFinalSpeech = spokenText.trim();
+            lastFinalSpeechAt = Date.now();
         }
         function cancelDictation() {
             if (!dictationRecognition || (!dictationActive && !dictationStopping)) return;
@@ -697,7 +720,7 @@
                 for (let i = committedSpeechResults; i < event.results.length; i++) {
                     const result = event.results[i];
                     if (!result.isFinal) break;
-                    appendRecognizedText(result[0].transcript);
+                    appendNewSpeech(result[0].transcript);
                     committedSpeechResults = i + 1;
                 }
                 const interim = [];
@@ -742,6 +765,8 @@
             dictationError = false;
             discardDictationResults = false;
             committedSpeechResults = 0;
+            lastFinalSpeech = '';
+            lastFinalSpeechAt = 0;
             document.getElementById('dictationPreview').textContent = '';
             try {
                 dictationRecognition.start();
