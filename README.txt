@@ -1,0 +1,27 @@
+I MIEI APPUNTI - VERSIONE PWA
+
+Contenuto
+- index.html: app
+- manifest.webmanifest: dati di installazione
+- sw.js: accesso offline
+- icons/: icone
+
+Per installare, pubblica l'intera cartella su un sito HTTPS e apri index.html,
+oppure avviala in locale con un server su localhost. Aprire index.html con
+doppio clic (indirizzo file://) non abilita l'installazione PWA.
+
+Esempio con Python, eseguito dentro questa cartella:
+    python -m http.server 8000
+Poi apri http://localhost:8000/ nel browser.
+
+Il pulsante "Installa" appare nella versione web quando l'app non gira gia'
+come app installata. Dove il browser non offre una finestra di installazione,
+il pulsante mostra le istruzioni disponibili.
+
+I dati sono salvati nel browser per ogni origine. Se passi da un file locale
+o da un altro sito alla PWA, esporta prima il backup JSON dalla vecchia app
+e importalo nella nuova. Il backup JSONBin puo' essere collegato nelle
+Impostazioni usando la tua chiave e il Bin ID.
+
+L'app funziona offline dopo la prima visita completata; funzioni Gemini,
+JSONBin e Google Calendar richiedono invece una connessione.

@@ -3,6 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/icon-192.png">
     <title>I Miei Appunti</title>
     <style>
         * { box-sizing: border-box; }
@@ -82,6 +88,10 @@
         .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
         .tag {
             background: #e0e0e0;
+            width: auto;
+            border: 0;
+            margin-bottom: 0;
+            color: #333;
             padding: 6px 12px;
             border-radius: 15px;
             font-size: 13px;
@@ -89,6 +99,22 @@
             word-break: break-word;
         }
         .tag.active { background: #3498db; color: white; }
+        .tag:hover { background: #ccd5d9; }
+        .tag.active:hover { background: #2980b9; }
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+        .secret-row { display: flex; gap: 6px; margin-bottom: 10px; }
+        .secret-row input { flex: 1; min-width: 0; margin-bottom: 0; }
+        .secret-row button { width: auto; margin-bottom: 0; }
 
         .note {
             border-left: 4px solid #3498db;
@@ -263,12 +289,17 @@
         }
         .inline-link {
             display: inline-block;
+            width: auto;
+            padding: 0;
+            border: 0;
+            background: none;
             font-size: 13px;
             color: #7f8c8d;
             text-decoration: underline;
             cursor: pointer;
             margin-top: 4px;
         }
+        .inline-link:hover { background: none; color: #2c3e50; }
         .card h3.card-title { margin: 0 0 8px; font-size: 15px; color: #2c3e50; }
         .cloud-status {
             font-size: 13px;
@@ -281,16 +312,22 @@
         .app-header {
             display: flex;
             align-items: center;
-            justify-content: center;
-            position: relative;
+            justify-content: space-between;
+            gap: 8px;
             margin: 10px 0;
         }
-        .app-header h1 { margin: 0; }
+        .app-header h1 { margin: 0; text-align: left; }
+        .header-actions { display: flex; align-items: center; gap: 6px; }
+        .install-btn {
+            width: auto;
+            margin: 0;
+            padding: 8px 10px;
+            font-size: 14px;
+            background: #27ae60;
+            white-space: nowrap;
+        }
+        .install-btn:hover { background: #219653; }
         .settings-gear {
-            position: absolute;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
             width: auto;
             background: none;
             color: #2c3e50;
@@ -361,24 +398,25 @@
 <body>
 
     <!-- Modale Richiesta API Key -->
-    <div id="apiKeyModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Configura API Key di Gemini</h3>
+    <div id="apiKeyModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="apiKeyTitle">
+        <div class="modal-content" tabindex="-1">
+            <h3 id="apiKeyTitle">Configura API Key di Gemini</h3>
             <p style="font-size: 14px; color: #555; line-height: 1.4;">
                 Vuoi utilizzare le funzioni di organizzazione con l'Intelligenza Artificiale?<br>
                 Inserisci la tua chiave o salta questo passaggio per usare l'app manualmente.<br>
                 Puoi generarla su <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener">Google AI Studio</a>.
             </p>
-            <input type="text" id="modalApiKeyInput" placeholder="Incolla qui la tua API Key (facoltativo)...">
+            <label for="modalApiKeyInput">API Key di Gemini</label>
+            <div class="secret-row"><input type="password" id="modalApiKeyInput" autocomplete="off" placeholder="Incolla qui la tua API Key (facoltativo)..."><button type="button" class="btn-secondary" onclick="toggleSecret('modalApiKeyInput', this)" aria-label="Mostra API Key di Gemini">Mostra</button></div>
             <button onclick="saveApiKey()">Salva e continua</button>
             <button class="btn-secondary" onclick="skipApiKey()">Salta per ora (usa manualmente)</button>
         </div>
     </div>
 
     <!-- Modale Gestione Categorie -->
-    <div id="categoryModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Gestisci categorie</h3>
+    <div id="categoryModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="categoryTitle">
+        <div class="modal-content" tabindex="-1">
+            <h3 id="categoryTitle">Gestisci categorie</h3>
             <p style="font-size: 13px; color: #777; line-height: 1.4;">
                 Rinomina o elimina le categorie. Eliminando una categoria, gli appunti collegati restano senza categoria.
             </p>
@@ -388,17 +426,18 @@
     </div>
 
     <!-- Modale Impostazioni -->
-    <div id="settingsModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Impostazioni</h3>
+    <div id="settingsModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="modal-content" tabindex="-1">
+            <h3 id="settingsTitle">Impostazioni</h3>
 
             <h4>Intelligenza Artificiale (Gemini)</h4>
             <p class="section-hint">
                 Serve solo per la funzione "Aiutami con l'AI". Genera la chiave su
                 <a href="https://aistudio.google.com/api-keys" target="_blank" rel="noopener">Google AI Studio</a>.
-                Viene salvata solo su questo dispositivo.
+                La chiave viene salvata in questo browser. Quando usi l'AI, il testo dell'appunto viene inviato a Gemini.
             </p>
-            <input type="text" id="settingsApiKeyInput" placeholder="API Key di Gemini (facoltativa)">
+            <label for="settingsApiKeyInput">API Key di Gemini</label>
+            <div class="secret-row"><input type="password" id="settingsApiKeyInput" autocomplete="off" placeholder="API Key di Gemini (facoltativa)"><button type="button" class="btn-secondary" onclick="toggleSecret('settingsApiKeyInput', this)" aria-label="Mostra API Key di Gemini">Mostra</button></div>
             <button onclick="saveApiKeyFromSettings()">Salva chiave</button>
 
             <h4>Backup su file</h4>
@@ -409,15 +448,30 @@
             </div>
             <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(event)">
 
+            <h4>Importa da Google Keep</h4>
+            <p class="section-hint">
+                Esporta i tuoi appunti da <a href="https://takeout.google.com" target="_blank" rel="noopener">Google Takeout</a>
+                (seleziona solo Keep), estrai lo .zip e scegli i file <b>.json</b> della cartella "Keep".
+                Vengono importati testo, etichette e lo stato fissato/archiviato (le immagini no).
+            </p>
+            <button class="btn-secondary" onclick="document.getElementById('keepImportFile').click()">Seleziona i file .json di Keep</button>
+            <input type="file" id="keepImportFile" accept="application/json,.json" multiple style="display:none" onchange="importFromKeep(event)">
+
             <h4>Backup automatico su cloud (JSONBin)</h4>
             <p class="section-hint">
-                Crea un "bin" gratuito su <a href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a> e
-                incolla Bin ID e Master Key: gli appunti verranno salvati sul cloud a ogni modifica.
+                Crea una Access Key su <a href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a>
+                con permessi di creazione, lettura e aggiornamento dei bin. Inserisci un Bin ID esistente oppure
+                lascialo vuoto: l'app creerà un nuovo bin privato con i tuoi appunti. Dopo la configurazione,
+                ogni modifica verrà salvata automaticamente.
             </p>
-            <p id="cloudStatus" class="cloud-status">Backup automatico non configurato.</p>
-            <input type="text" id="cloudBinInput" placeholder="Bin ID">
-            <input type="text" id="cloudKeyInput" placeholder="Master Key">
-            <button onclick="saveCloudConfig()">Salva configurazione</button>
+            <p id="cloudStatus" class="cloud-status" role="status" aria-live="polite">Backup automatico non configurato.</p>
+            <label for="cloudAuthType">Tipo di chiave JSONBin</label>
+            <select id="cloudAuthType"><option value="access">Access Key</option><option value="master">Master Key (configurazioni esistenti)</option></select>
+            <label for="cloudBinInput">Bin ID (facoltativo per un nuovo bin)</label>
+            <input type="text" id="cloudBinInput" autocomplete="off" placeholder="Vuoto = crea un bin privato">
+            <label for="cloudKeyInput">Chiave JSONBin</label>
+            <div class="secret-row"><input type="password" id="cloudKeyInput" autocomplete="off" placeholder="Access Key o Master Key"><button type="button" class="btn-secondary" onclick="toggleSecret('cloudKeyInput', this)" aria-label="Mostra chiave JSONBin">Mostra</button></div>
+            <button id="cloudConfigBtn" onclick="saveCloudConfig()">Salva configurazione e crea il bin se necessario</button>
             <div id="cloudActions" class="flex-row" style="display:none;">
                 <button class="flex-1 btn-green" onclick="saveToCloud(true)">Salva ora</button>
                 <button class="flex-1 btn-secondary" onclick="loadFromCloud(true)">Carica da cloud</button>
@@ -436,9 +490,9 @@
     </div>
 
     <!-- Modale Manuale (accordion per sezioni) -->
-    <div id="manualModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Manuale — I Miei Appunti</h3>
+    <div id="manualModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="manualTitle">
+        <div class="modal-content" tabindex="-1">
+            <h3 id="manualTitle">Manuale — I Miei Appunti</h3>
             <div id="manualAccordion"></div>
             <div class="flex-row" style="margin-top:12px;">
                 <button class="flex-1 btn-secondary" onclick="printManual()">⬇️ Scarica tutto in PDF</button>
@@ -448,17 +502,18 @@
     </div>
 
     <!-- Modale Promemoria (calendario) -->
-    <div id="reminderModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Promemoria nel calendario</h3>
+    <div id="reminderModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
+        <div class="modal-content" tabindex="-1">
+            <h3 id="reminderTitle">Promemoria nel calendario</h3>
             <p class="section-hint">
-                Scegli data e ora: verrà creato un evento nel calendario del tuo telefono, che ti
-                avviserà anche con l'app chiusa. Il promemoria è gestito dal calendario, non dall'app.
+                Scegli data e ora e prepara un evento. Per ricevere l'avviso, devi aggiungere
+                l'evento al tuo calendario. L'app non può verificare se l'hai aggiunto.
             </p>
             <div class="flex-row">
-                <input type="date" id="reminderDate" class="flex-1">
-                <input type="time" id="reminderTime" class="flex-1">
+                <label class="sr-only" for="reminderDate">Data del promemoria</label><input type="date" id="reminderDate" class="flex-1">
+                <label class="sr-only" for="reminderTime">Ora del promemoria</label><input type="time" id="reminderTime" class="flex-1">
             </div>
+            <label class="sr-only" for="reminderAlert">Quando ricevere l'avviso</label>
             <select id="reminderAlert">
                 <option value="0">Avvisami all'orario scelto</option>
                 <option value="10">10 minuti prima</option>
@@ -466,27 +521,42 @@
                 <option value="1440">1 giorno prima</option>
             </select>
             <div class="flex-row">
-                <button class="flex-1 btn-green" onclick="downloadReminderICS()">⬇️ Scarica promemoria (.ics)</button>
-                <button class="flex-1" onclick="openGoogleCalendar()">Apri in Google Calendar</button>
+                <button class="flex-1 btn-green" onclick="downloadReminderICS()">⬇️ Scarica evento (.ics)</button>
+                <button class="flex-1" onclick="openGoogleCalendar()">Prepara in Google Calendar</button>
             </div>
-            <button id="reminderRemoveBtn" class="btn-secondary" style="display:none;" onclick="removeReminder()">Rimuovi promemoria dall'appunto</button>
+            <button id="reminderRemoveBtn" class="btn-secondary" style="display:none;" onclick="removeReminder()">Rimuovi indicazione dall'appunto</button>
             <button class="btn-secondary" onclick="closeReminder()">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- Installazione PWA -->
+    <div id="installModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="installTitle">
+        <div class="modal-content" tabindex="-1">
+            <h3 id="installTitle">Installa I Miei Appunti</h3>
+            <p id="installHelpText" class="section-hint"></p>
+            <button class="btn-secondary" onclick="closeInstallHelp()">Chiudi</button>
         </div>
     </div>
 
     <div class="app-header">
         <h1>I Miei Appunti</h1>
-        <button class="settings-gear" title="Impostazioni" onclick="openSettings()">⚙️</button>
+        <div class="header-actions">
+            <button id="installBtn" class="install-btn" type="button" hidden onclick="installApp()">⬇ Installa</button>
+            <button class="settings-gear" title="Impostazioni" aria-label="Apri impostazioni" onclick="openSettings()">⚙️</button>
+        </div>
     </div>
 
     <!-- Area Inserimento -->
     <div class="card">
-        <div id="messageBox"></div>
+        <div id="messageBox" role="status" aria-live="polite"></div>
+        <label class="sr-only" for="noteText">Testo dell'appunto</label>
         <textarea id="noteText" placeholder="Scrivi il tuo appunto qui..."></textarea>
 
         <button class="btn-purple" onclick="askAiToOrganize()">✨ Aiutami con l'AI (organizza appunto)</button>
+        <p class="section-hint">Usando l'AI, il testo dell'appunto viene inviato a Gemini per organizzarlo.</p>
 
         <div class="flex-row">
+            <label class="sr-only" for="noteCategory">Categoria dell'appunto</label>
             <select id="noteCategory" class="flex-2">
                 <!-- Le categorie verranno caricate qui dinamicamente -->
             </select>
@@ -495,12 +565,14 @@
 
         <!-- UI Nascosta per aggiungere una nuova categoria -->
         <div class="flex-row" id="newCategoryUI" style="display: none;">
+            <label class="sr-only" for="newCategoryName">Nome della nuova categoria</label>
             <input type="text" id="newCategoryName" class="flex-2" placeholder="Nome nuova categoria...">
             <button class="flex-1 btn-green" onclick="saveNewCategory()">Salva</button>
         </div>
 
-        <span class="inline-link" onclick="openCategoryModal()">Gestisci categorie</span>
+        <button type="button" class="inline-link" onclick="openCategoryModal()">Gestisci categorie</button>
 
+        <label class="sr-only" for="noteTags">Etichette separate da virgola</label>
         <input type="text" id="noteTags" placeholder="Etichette (es: urgente, lavoro)">
         <div class="flex-row">
             <button class="flex-2" id="saveNoteBtn" onclick="saveNote()">Salva appunto</button>
@@ -511,12 +583,15 @@
     <!-- Area Ricerca, Filtri e Ordinamento -->
     <div class="card">
         <div class="flex-row" style="margin-bottom: 10px;">
+            <label class="sr-only" for="searchInput">Cerca negli appunti</label>
             <input type="text" id="searchInput" class="flex-2" placeholder="Cerca nel testo o nei tag..." onkeyup="filterNotes()">
         </div>
         <div class="flex-row">
+            <label class="sr-only" for="filterCategory">Filtra per categoria</label>
             <select id="filterCategory" class="flex-1" onchange="filterNotes()">
                 <!-- Le categorie verranno caricate qui dinamicamente -->
             </select>
+            <label class="sr-only" for="sortOrder">Ordina appunti</label>
             <select id="sortOrder" class="flex-1" onchange="filterNotes()">
                 <option value="desc">Più recenti</option>
                 <option value="asc">Meno recenti</option>
@@ -546,17 +621,126 @@
 
         // --- Stato cloud (JSONBin) ---
         let binId = localStorage.getItem('jsonbinBinId') || '';
-        let masterKey = localStorage.getItem('jsonbinKey') || '';
+        let cloudKey = localStorage.getItem('jsonbinKey') || '';
+        let cloudAuthType = localStorage.getItem('jsonbinAuthType') || (cloudKey ? 'master' : 'access');
         let cloudSaveTimer = null;
         let cloudDirty = false;
         let suppressCloudSave = false;
+        let cloudRevision = 0;
+        let cloudSaveInFlight = null;
         let lastCloudSaveLabel = localStorage.getItem('lastCloudSave') || '';
+        let deferredInstallPrompt = null;
+        let installedThisSession = false;
+
+        function runningAsApp() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                window.matchMedia('(display-mode: fullscreen)').matches ||
+                navigator.standalone === true;
+        }
+        function chromiumInstallBrowser() {
+            return /Chrome|Chromium|Edg|OPR|SamsungBrowser/.test(navigator.userAgent) &&
+                !/CriOS|EdgiOS/.test(navigator.userAgent);
+        }
+        function updateInstallButton() {
+            document.getElementById('installBtn').hidden = runningAsApp() || installedThisSession ||
+                (chromiumInstallBrowser() && !deferredInstallPrompt && location.protocol !== 'file:');
+        }
+        window.addEventListener('beforeinstallprompt', event => {
+            event.preventDefault();
+            deferredInstallPrompt = event;
+            updateInstallButton();
+        });
+        window.addEventListener('appinstalled', () => {
+            installedThisSession = true;
+            deferredInstallPrompt = null;
+            updateInstallButton();
+        });
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', updateInstallButton);
+
+        function openInstallHelp() {
+            const help = document.getElementById('installHelpText');
+            if (location.protocol === 'file:') {
+                help.textContent = 'Per installare l’app, pubblica questa cartella su HTTPS oppure aprila tramite localhost. Un file HTML aperto direttamente non può essere installato come PWA.';
+            } else if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                help.textContent = 'Apri questa pagina in Safari, tocca Condividi e scegli “Aggiungi alla schermata Home”.';
+            } else {
+                help.textContent = 'Apri il menu del browser e cerca “Installa app” o “Aggiungi alla schermata Home”. Se la voce non compare, verifica di usare HTTPS o localhost.';
+            }
+            showModal('installModal');
+        }
+        function closeInstallHelp() { hideModal('installModal'); }
+        async function installApp() {
+            if (!deferredInstallPrompt) { openInstallHelp(); return; }
+            const prompt = deferredInstallPrompt;
+            deferredInstallPrompt = null;
+            try {
+                await prompt.prompt();
+                const choice = await prompt.userChoice;
+                if (choice.outcome === 'accepted') installedThisSession = true;
+            } catch (err) {
+                openInstallHelp();
+            }
+            updateInstallButton();
+        }
+
+        if ('serviceWorker' in navigator &&
+            (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch(err => {
+                    console.warn('Service worker non registrato:', err);
+                });
+            });
+        }
 
         // Controllo apertura iniziale per API Key (mostra solo se non salvata e non saltata)
         window.addEventListener('DOMContentLoaded', () => {
             if (!apiKey && !hasSkippedAi) {
-                document.getElementById('apiKeyModal').style.display = 'flex';
+                showModal('apiKeyModal');
             }
+        });
+
+        const modalReturnFocus = {};
+        function showModal(id, returnFocus = document.activeElement) {
+            const modal = document.getElementById(id);
+            modalReturnFocus[id] = returnFocus;
+            modal.style.display = 'flex';
+            const first = modal.querySelector('input:not([type="hidden"]), select, button');
+            (first || modal.querySelector('.modal-content')).focus();
+        }
+        function hideModal(id, restoreFocus = true) {
+            document.getElementById(id).style.display = 'none';
+            if (restoreFocus) {
+                const target = modalReturnFocus[id]?.isConnected
+                    ? modalReturnFocus[id] : document.getElementById('noteText');
+                target.focus();
+            }
+        }
+        function toggleSecret(id, button) {
+            const input = document.getElementById(id);
+            const visible = input.type === 'password';
+            input.type = visible ? 'text' : 'password';
+            button.textContent = visible ? 'Nascondi' : 'Mostra';
+            button.setAttribute('aria-label', `${visible ? 'Nascondi' : 'Mostra'} ${input.labels?.[0]?.textContent || 'chiave'}`);
+        }
+
+        document.addEventListener('keydown', e => {
+            const openModals = Array.from(document.querySelectorAll('.modal-overlay'))
+                .filter(modal => modal.style.display === 'flex');
+            const modal = openModals[openModals.length - 1];
+            if (!modal) return;
+            if (e.key === 'Escape' && modal.id !== 'apiKeyModal') {
+                e.preventDefault();
+                ({ categoryModal: closeCategoryModal, settingsModal: closeSettings,
+                   manualModal: closeManual, reminderModal: closeReminder,
+                   installModal: closeInstallHelp })[modal.id]?.();
+            }
+            if (e.key !== 'Tab') return;
+            const focusable = Array.from(modal.querySelectorAll('button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), a[href]'))
+                .filter(el => el.getClientRects().length > 0);
+            if (!focusable.length) { e.preventDefault(); modal.querySelector('.modal-content').focus(); return; }
+            const first = focusable[0], last = focusable[focusable.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
         });
 
         // --- Utility: escape HTML per evitare rendering rotto/injection ---
@@ -578,19 +762,19 @@
             apiKey = keyInput;
             localStorage.setItem('geminiApiKey', apiKey);
             localStorage.removeItem('skippedAi');
-            document.getElementById('apiKeyModal').style.display = 'none';
+            hideModal('apiKeyModal');
             showMessage("API Key salvata con successo!");
         }
 
         function skipApiKey() {
             hasSkippedAi = true;
             localStorage.setItem('skippedAi', 'true');
-            document.getElementById('apiKeyModal').style.display = 'none';
+            hideModal('apiKeyModal');
         }
 
         function openApiKeyModal() {
             document.getElementById('modalApiKeyInput').value = apiKey;
-            document.getElementById('apiKeyModal').style.display = 'flex';
+            showModal('apiKeyModal');
         }
 
         function showMessage(msg) {
@@ -672,10 +856,10 @@
         // --- Gestione categorie (rinomina / elimina) ---
         function openCategoryModal() {
             renderCategoryManageList();
-            document.getElementById('categoryModal').style.display = 'flex';
+            showModal('categoryModal');
         }
         function closeCategoryModal() {
-            document.getElementById('categoryModal').style.display = 'none';
+            hideModal('categoryModal');
         }
         function renderCategoryManageList() {
             const list = document.getElementById('categoryManageList');
@@ -690,6 +874,7 @@
                 const input = document.createElement('input');
                 input.type = 'text';
                 input.value = cat;
+                input.setAttribute('aria-label', `Nome categoria ${cat}`);
                 const renameBtn = document.createElement('button');
                 renameBtn.className = 'btn-green';
                 renameBtn.innerText = 'Rinomina';
@@ -959,9 +1144,12 @@
             tagContainer.innerHTML = '';
 
             Array.from(allTags).sort().forEach(tag => {
-                const el = document.createElement('span');
+                const el = document.createElement('button');
+                el.type = 'button';
                 el.className = `tag ${activeTag === tag ? 'active' : ''}`;
                 el.innerText = tag;
+                el.setAttribute('aria-pressed', String(activeTag === tag));
+                el.setAttribute('aria-label', `Filtra per etichetta ${tag}`);
                 el.onclick = () => toggleTagFilter(tag);
                 tagContainer.appendChild(el);
             });
@@ -972,11 +1160,26 @@
         }
 
         function highlightText(text, query) {
-            const escaped = escapeHtml(text);
-            if (!query) return escaped;
-            const escapedQuery = escapeHtml(query).replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            if (!query) return escapeHtml(text);
+            const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             const regex = new RegExp(`(${escapedQuery})`, 'gi');
-            return escaped.replace(regex, '<mark>$1</mark>');
+            let result = '', start = 0;
+            for (const match of text.matchAll(regex)) {
+                result += escapeHtml(text.slice(start, match.index));
+                result += `<mark>${escapeHtml(match[0])}</mark>`;
+                start = match.index + match[0].length;
+            }
+            return result + escapeHtml(text.slice(start));
+        }
+
+        function noteButton(label, className, title, action) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = className;
+            button.textContent = label;
+            if (title) button.title = title;
+            button.addEventListener('click', action);
+            return button;
         }
 
         function renderNotes() {
@@ -1035,21 +1238,7 @@
                 const tagsHtml = (n.tags || []).map(t => `<span>#${escapeHtml(t)}</span>`).join('');
                 const highlightedContent = highlightText(n.text, query);
                 const editedFlag = n.edited ? `<span class="edited-flag">· modificato</span>` : '';
-                const reminderFlag = n.reminderAt ? `<span class="reminder-flag">🔔 ${formatReminderShort(n.reminderAt)}</span>` : '';
-
-                // Il pin e la campanella hanno senso solo tra gli appunti attivi
-                const pinButton = viewMode === 'archived' ? '' :
-                    `<button class="pin-btn ${n.pinned ? 'on' : ''}" title="${n.pinned ? 'Rimuovi dai fissati' : 'Fissa in alto'}" onclick="togglePin(${n.id})">📌</button>`;
-                const bellButton = viewMode === 'archived' ? '' :
-                    `<button class="bell-btn ${n.reminderAt ? 'on' : ''}" title="Imposta promemoria nel calendario" onclick="openReminder(${n.id})">🔔</button>`;
-
-                // Azioni diverse a seconda della vista
-                const actions = viewMode === 'archived'
-                    ? `<button class="btn-green" onclick="unarchiveNote(${n.id})">Ripristina</button>
-                       <button class="delete-btn" onclick="deleteNote(${n.id})">Elimina</button>`
-                    : `<button class="btn-edit" onclick="editNote(${n.id})">Modifica</button>
-                       <button class="btn-secondary" onclick="archiveNote(${n.id})">Archivia</button>
-                       <button class="delete-btn" onclick="deleteNote(${n.id})">Elimina</button>`;
+                const reminderFlag = n.reminderAt ? `<span class="reminder-flag" title="Verifica che l'evento sia stato aggiunto al calendario">📅 Verifica: ${formatReminderShort(n.reminderAt)}</span>` : '';
 
                 div.innerHTML = `
                     <div class="note-header">
@@ -1058,18 +1247,26 @@
                             ${editedFlag}
                             ${reminderFlag}
                         </div>
-                        <div class="note-meta">
-                            ${categoryBadge}
-                            ${bellButton}
-                            ${pinButton}
-                        </div>
+                        <div class="note-meta note-controls">${categoryBadge}</div>
                     </div>
                     <div class="note-content">${highlightedContent}</div>
                     <div class="note-tags">${tagsHtml}</div>
-                    <div class="note-actions">
-                        ${actions}
-                    </div>
+                    <div class="note-actions"></div>
                 `;
+                const controls = div.querySelector('.note-controls');
+                const actions = div.querySelector('.note-actions');
+                if (viewMode === 'archived') {
+                    actions.appendChild(noteButton('Ripristina', 'btn-green', '', () => unarchiveNote(n.id)));
+                    actions.appendChild(noteButton('Elimina', 'delete-btn', '', () => deleteNote(n.id)));
+                } else {
+                    controls.appendChild(noteButton('🔔', `bell-btn ${n.reminderAt ? 'on' : ''}`,
+                        'Prepara un evento nel calendario', () => openReminder(n.id)));
+                    controls.appendChild(noteButton('📌', `pin-btn ${n.pinned ? 'on' : ''}`,
+                        n.pinned ? 'Rimuovi dai fissati' : 'Fissa in alto', () => togglePin(n.id)));
+                    actions.appendChild(noteButton('Modifica', 'btn-edit', '', () => editNote(n.id)));
+                    actions.appendChild(noteButton('Archivia', 'btn-secondary', '', () => archiveNote(n.id)));
+                    actions.appendChild(noteButton('Elimina', 'delete-btn', '', () => deleteNote(n.id)));
+                }
                 container.appendChild(div);
             });
         }
@@ -1095,14 +1292,47 @@
             showMessage("Backup esportato.");
         }
 
+        function validateImportedData(data) {
+            if (!data || !Array.isArray(data.notes)) throw new Error('Appunti mancanti');
+            if (data.categories !== undefined &&
+                (!Array.isArray(data.categories) || data.categories.some(c => typeof c !== 'string'))) {
+                throw new Error('Categorie non valide');
+            }
+            const seenIds = new Set();
+            const importedNotes = data.notes.map(n => {
+                if (!n || !Number.isSafeInteger(n.id) || seenIds.has(n.id) ||
+                    typeof n.text !== 'string' || typeof n.category !== 'string' ||
+                    !Array.isArray(n.tags) || n.tags.some(t => typeof t !== 'string') ||
+                    typeof n.date !== 'string' || !Number.isFinite(n.timestamp) ||
+                    (n.reminderAt !== undefined &&
+                     (typeof n.reminderAt !== 'string' || !Number.isFinite(Date.parse(n.reminderAt))))) {
+                    throw new Error('Appunto non valido');
+                }
+                seenIds.add(n.id);
+                return {
+                    id: n.id,
+                    text: n.text,
+                    category: n.category,
+                    tags: n.tags,
+                    pinned: n.pinned === true,
+                    archived: n.archived === true,
+                    date: n.date,
+                    timestamp: n.timestamp,
+                    ...(n.edited === true ? { edited: true } : {}),
+                    ...(typeof n.editedDate === 'string' ? { editedDate: n.editedDate } : {}),
+                    ...(n.reminderAt ? { reminderAt: n.reminderAt } : {})
+                };
+            });
+            return { notes: importedNotes, categories: data.categories || null };
+        }
+
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = e => {
                 try {
-                    const data = JSON.parse(e.target.result);
-                    if (!Array.isArray(data.notes)) throw new Error('formato non valido');
+                    const data = validateImportedData(JSON.parse(e.target.result));
 
                     const replace = confirm(
                         "OK = SOSTITUISCI tutti gli appunti attuali con quelli del backup.\n" +
@@ -1111,10 +1341,15 @@
 
                     if (replace) {
                         notes = data.notes;
-                        if (Array.isArray(data.categories)) categories = data.categories;
+                        if (data.categories) categories = data.categories;
                     } else {
                         const existingIds = new Set(notes.map(n => n.id));
-                        data.notes.forEach(n => { if (!existingIds.has(n.id)) notes.push(n); });
+                        data.notes.forEach(n => {
+                            if (!existingIds.has(n.id)) {
+                                notes.push(n);
+                                existingIds.add(n.id);
+                            }
+                        });
                         (data.categories || []).forEach(c => { if (!categories.includes(c)) categories.push(c); });
                     }
 
@@ -1130,7 +1365,7 @@
         }
 
         // --- Cloud (JSONBin): configurazione + sincronizzazione ---
-        function cloudConfigured() { return Boolean(binId && masterKey); }
+        function cloudConfigured() { return Boolean(binId && cloudKey); }
 
         function renderCloudCard() {
             const status = document.getElementById('cloudStatus');
@@ -1139,7 +1374,7 @@
             if (cloudConfigured()) {
                 actions.style.display = 'flex';
                 disconnectBtn.style.display = 'block';
-                status.innerText = lastCloudSaveLabel
+                status.innerText = cloudDirty ? 'Modifiche non ancora salvate sul cloud' : lastCloudSaveLabel
                     ? `Cloud attivo · ultimo salvataggio: ${lastCloudSaveLabel}`
                     : 'Cloud attivo · nessun salvataggio ancora';
             } else {
@@ -1149,24 +1384,70 @@
             }
         }
 
-        function saveCloudConfig() {
-            binId = document.getElementById('cloudBinInput').value.trim();
-            masterKey = document.getElementById('cloudKeyInput').value.trim();
-            localStorage.setItem('jsonbinBinId', binId);
-            localStorage.setItem('jsonbinKey', masterKey);
-            renderCloudCard();
-            if (cloudConfigured()) {
-                showMessage('Cloud configurato.');
-                checkCloudOnStart();
+        function cloudHeaders(key = cloudKey, type = cloudAuthType) {
+            return { [type === 'master' ? 'X-Master-Key' : 'X-Access-Key']: key };
+        }
+
+        async function saveCloudConfig() {
+            const nextBin = document.getElementById('cloudBinInput').value.trim();
+            const nextKey = document.getElementById('cloudKeyInput').value.trim();
+            const nextType = document.getElementById('cloudAuthType').value;
+            if (!nextKey) { showMessage('Inserisci una chiave JSONBin.'); return; }
+            const button = document.getElementById('cloudConfigBtn');
+            button.disabled = true;
+            try {
+                if (cloudSaveInFlight) await cloudSaveInFlight;
+                let id = nextBin;
+                if (!id) {
+                    document.getElementById('cloudStatus').innerText = 'Creazione del bin privato…';
+                    const snapshot = JSON.stringify({ notes, categories });
+                    const res = await fetch('https://api.jsonbin.io/v3/b', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...cloudHeaders(nextKey, nextType),
+                                   'X-Bin-Private': 'true', 'X-Bin-Name': 'I Miei Appunti' },
+                        body: JSON.stringify({ notes, categories, updatedAt: new Date().toISOString() })
+                    });
+                    if (!res.ok) throw { status: res.status };
+                    const data = await res.json();
+                    id = data.metadata?.id;
+                    if (!id) throw new Error('Bin ID mancante nella risposta');
+                    document.getElementById('cloudBinInput').value = id;
+                    cloudDirty = snapshot !== JSON.stringify({ notes, categories });
+                    lastCloudSaveLabel = currentTimestampLabel();
+                    localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
+                } else {
+                    clearTimeout(cloudSaveTimer);
+                    cloudRevision++;
+                    cloudDirty = false;
+                }
+                binId = id;
+                cloudKey = nextKey;
+                cloudAuthType = nextType;
+                localStorage.setItem('jsonbinBinId', binId);
+                localStorage.setItem('jsonbinKey', cloudKey);
+                localStorage.setItem('jsonbinAuthType', cloudAuthType);
+                renderCloudCard();
+                showMessage(nextBin ? 'Configurazione cloud salvata.' : `Bin privato creato. Bin ID: ${id}`);
+                if (cloudDirty) scheduleCloudSave();
+                if (nextBin) checkCloudOnStart(true);
+            } catch (err) {
+                showMessage(cloudErrorMessage(err && err.status));
+                renderCloudCard();
+            } finally {
+                button.disabled = false;
             }
         }
 
         function disconnectCloud() {
             if (!confirm('Disconnettere il backup su cloud? I dati sul cloud restano, ma non verranno più aggiornati da questo dispositivo.')) return;
+            clearTimeout(cloudSaveTimer);
+            cloudRevision++;
+            cloudDirty = false;
             binId = '';
-            masterKey = '';
+            cloudKey = '';
             localStorage.removeItem('jsonbinBinId');
             localStorage.removeItem('jsonbinKey');
+            localStorage.removeItem('jsonbinAuthType');
             document.getElementById('cloudBinInput').value = '';
             document.getElementById('cloudKeyInput').value = '';
             renderCloudCard();
@@ -1174,7 +1455,9 @@
         }
 
         function cloudErrorMessage(status) {
-            if (status === 401) return 'Chiave (Master Key) non valida.';
+            if (status === 401) return 'Chiave JSONBin non valida.';
+            if (status === 403) return 'La chiave JSONBin non ha i permessi necessari.';
+            if (status === 400) return 'Richiesta JSONBin non valida. Controlla i dati e il limite del piano.';
             if (status === 404) return 'Bin ID non trovato.';
             if (status === 429) return 'Troppe richieste al cloud, riprova tra poco.';
             return 'Errore di comunicazione con il cloud.';
@@ -1182,6 +1465,7 @@
 
         function scheduleCloudSave() {
             if (!cloudConfigured() || suppressCloudSave) return;
+            cloudRevision++;
             cloudDirty = true;
             document.getElementById('cloudStatus').innerText = 'Modifiche non salvate sul cloud…';
             clearTimeout(cloudSaveTimer);
@@ -1191,42 +1475,75 @@
         async function saveToCloud(manual) {
             if (!cloudConfigured()) { if (manual) openSettings(); return; }
             clearTimeout(cloudSaveTimer);
+            if (cloudSaveInFlight) {
+                const saved = await cloudSaveInFlight;
+                if (manual && saved && !cloudDirty) showMessage('Salvato sul cloud.');
+                return;
+            }
+            cloudSaveInFlight = (async () => {
+                do {
+                    const revision = cloudRevision;
+                    const currentBin = binId;
+                    const currentKey = cloudKey;
+                    const currentType = cloudAuthType;
+                    const body = JSON.stringify({ notes, categories, updatedAt: new Date().toISOString() });
+                    document.getElementById('cloudStatus').innerText = 'Salvataggio su cloud…';
+                    try {
+                        const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(currentBin)}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', ...cloudHeaders(currentKey, currentType) },
+                            body
+                        });
+                        if (!res.ok) throw { status: res.status };
+                    } catch (err) {
+                        if (currentBin === binId && currentKey === cloudKey && currentType === cloudAuthType) {
+                            cloudDirty = true;
+                            renderCloudCard();
+                            showMessage(cloudErrorMessage(err && err.status));
+                            cloudSaveTimer = setTimeout(() => saveToCloud(false), 30000);
+                        }
+                        return false;
+                    }
+                    if (currentBin !== binId || currentKey !== cloudKey || currentType !== cloudAuthType) return false;
+                    lastCloudSaveLabel = currentTimestampLabel();
+                    localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
+                    cloudDirty = revision !== cloudRevision;
+                    renderCloudCard();
+                } while (cloudDirty && cloudConfigured());
+                return true;
+            })();
             try {
-                document.getElementById('cloudStatus').innerText = 'Salvataggio su cloud…';
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json', 'X-Master-Key': masterKey },
-                    body: JSON.stringify({ notes, categories, updatedAt: new Date().toISOString() })
-                });
-                if (!res.ok) throw { status: res.status };
-                cloudDirty = false;
-                lastCloudSaveLabel = currentTimestampLabel();
-                localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
-                renderCloudCard();
-                if (manual) showMessage('Salvato sul cloud.');
-            } catch (err) {
-                showMessage(cloudErrorMessage(err && err.status));
-                renderCloudCard();
+                const saved = await cloudSaveInFlight;
+                if (manual && saved) showMessage('Salvato sul cloud.');
+            } finally {
+                cloudSaveInFlight = null;
             }
         }
 
         async function loadFromCloud(manual) {
             if (!cloudConfigured()) { openSettings(); return; }
             try {
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-                    headers: { 'X-Master-Key': masterKey }
+                if (cloudSaveInFlight) await cloudSaveInFlight;
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}/latest`, {
+                    headers: cloudHeaders()
                 });
                 if (!res.ok) throw { status: res.status };
                 const json = await res.json();
-                const record = json.record || {};
-                if (!Array.isArray(record.notes)) { showMessage('Il cloud non contiene appunti validi.'); return; }
+                const record = validateImportedData(json.record);
                 if (manual && !confirm('Sostituire gli appunti locali con quelli del cloud?')) return;
+                clearTimeout(cloudSaveTimer);
+                cloudRevision++;
+                cloudDirty = false;
                 suppressCloudSave = true;
                 notes = record.notes;
-                if (Array.isArray(record.categories)) categories = record.categories;
-                saveCategoriesState();
-                saveNotes();
-                suppressCloudSave = false;
+                if (record.categories) categories = record.categories;
+                try {
+                    saveCategoriesState();
+                    saveNotes();
+                } finally {
+                    suppressCloudSave = false;
+                }
+                renderCloudCard();
                 showMessage('Appunti caricati dal cloud.');
             } catch (err) {
                 showMessage(cloudErrorMessage(err && err.status));
@@ -1234,16 +1551,15 @@
         }
 
         // Confronto all'avvio: non sovrascrive in silenzio
-        async function checkCloudOnStart() {
+        async function checkCloudOnStart(reportErrors = false) {
             if (!cloudConfigured()) return;
             try {
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
-                    headers: { 'X-Master-Key': masterKey }
+                const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}/latest`, {
+                    headers: cloudHeaders()
                 });
-                if (!res.ok) return;
+                if (!res.ok) throw { status: res.status };
                 const json = await res.json();
-                const record = json.record || {};
-                if (!Array.isArray(record.notes)) return;
+                const record = validateImportedData(json.record);
                 const cloudStr = JSON.stringify({ notes: record.notes, categories: record.categories || [] });
                 const localStr = JSON.stringify({ notes, categories });
                 if (cloudStr !== localStr) {
@@ -1251,7 +1567,7 @@
                         loadFromCloud(false);
                     }
                 }
-            } catch (err) { /* all'avvio si resta silenziosi */ }
+            } catch (err) { if (reportErrors) showMessage(cloudErrorMessage(err && err.status)); }
         }
 
         // Avviso se si chiude con modifiche non ancora salvate sul cloud
@@ -1266,12 +1582,13 @@
         function openSettings() {
             document.getElementById('settingsApiKeyInput').value = apiKey;
             document.getElementById('cloudBinInput').value = binId;
-            document.getElementById('cloudKeyInput').value = masterKey;
+            document.getElementById('cloudKeyInput').value = cloudKey;
+            document.getElementById('cloudAuthType').value = cloudAuthType;
             renderCloudCard();
-            document.getElementById('settingsModal').style.display = 'flex';
+            showModal('settingsModal');
         }
         function closeSettings() {
-            document.getElementById('settingsModal').style.display = 'none';
+            hideModal('settingsModal');
         }
         function saveApiKeyFromSettings() {
             apiKey = document.getElementById('settingsApiKeyInput').value.trim();
@@ -1296,7 +1613,7 @@
                     <li>Premi <b>Salva appunto</b>.</li>
                 </ul>` },
             { title: "3. Organizzare con l'AI (Gemini)", body: `
-                <p>Il pulsante <b>✨ Aiutami con l'AI</b> pulisce il testo e propone categoria ed etichette. Richiede una chiave Gemini, da inserire in Impostazioni (⚙️). Senza chiave, l'app funziona normalmente in modo manuale.</p>` },
+                <p>Il pulsante <b>✨ Aiutami con l'AI</b> invia il testo dell'appunto a Gemini, che propone testo pulito, categoria ed etichette. Richiede una chiave Gemini, da inserire in Impostazioni (⚙️). Senza chiave, l'app funziona in modo manuale.</p>` },
             { title: "4. Categorie", body: `
                 <ul>
                     <li><b>+ Nuova categoria</b> per aggiungerne una.</li>
@@ -1310,13 +1627,13 @@
                 </ul>` },
             { title: "6. Fissare in alto (📌)", body: `
                 <p>L'icona 📌 su un appunto lo fissa in cima alla lista. Utile per le cose più importanti. Toccala di nuovo per rimuovere il fissaggio.</p>` },
-            { title: "7. Promemoria nel calendario (🔔)", body: `
+            { title: "7. Eventi nel calendario (🔔)", body: `
                 <ul>
-                    <li>La <b>🔔</b> su un appunto apre la finestra del promemoria: scegli <b>data</b>, <b>ora</b> e quando essere avvisato (all'orario, 10 minuti, 1 ora o 1 giorno prima).</li>
-                    <li><b>Scarica promemoria (.ics)</b>: crea un evento da aprire nel calendario del telefono; contiene l'avviso e funziona offline.</li>
-                    <li><b>Apri in Google Calendar</b>: apre l'evento già compilato (l'avviso preciso, però, conviene impostarlo con il file .ics).</li>
-                    <li>L'avviso arriva dal <b>calendario del telefono</b>, anche con l'app chiusa: l'app crea solo l'evento.</li>
-                    <li>Sull'appunto compare un badge 🔔 con data e ora; puoi togliere il promemoria dall'appunto senza toccare l'evento già nel calendario.</li>
+                    <li>La <b>🔔</b> su un appunto apre la finestra dell'evento: scegli <b>data</b>, <b>ora</b> e quando essere avvisato.</li>
+                    <li><b>Scarica evento (.ics)</b>: scarica un file da aprire e aggiungere al calendario del telefono.</li>
+                    <li><b>Prepara in Google Calendar</b>: apre un evento precompilato; devi salvarlo su Google Calendar. Per un avviso preciso, usa il file .ics.</li>
+                    <li>L'avviso arriverà dal <b>calendario</b> solo dopo che avrai aggiunto l'evento. L'app non può verificare se l'hai fatto.</li>
+                    <li>Sull'appunto compare “📅 Verifica” con data e ora: controlla nel calendario se hai salvato l'evento. L'app non può conoscere lo stato del calendario.</li>
                 </ul>` },
             { title: "8. Modificare un appunto", body: `
                 <p>Premi <b>Modifica</b>: testo, categoria ed etichette tornano nel riquadro in alto. Il pulsante diventa <b>Aggiorna appunto</b> (o <b>Annulla modifica</b>). Gli appunti modificati mostrano "· modificato".</p>` },
@@ -1331,19 +1648,20 @@
                 <p>In Impostazioni (⚙️) → <b>Esporta</b> scarica un file .json con tutti gli appunti; <b>Importa</b> lo ricarica, scegliendo se sostituire o unire ai dati esistenti.</p>` },
             { title: "12. Backup automatico su cloud (JSONBin)", body: `
                 <ul>
-                    <li>Crea un "bin" gratuito su jsonbin.io e ottieni <b>Bin ID</b> e <b>Master Key</b>.</li>
-                    <li>Inseriscili in Impostazioni → <b>Salva configurazione</b>.</li>
+                    <li>Su jsonbin.io crea una <b>Access Key</b> con permessi di creazione, lettura e aggiornamento dei bin. Puoi anche usare una Master Key già configurata.</li>
+                    <li>Inserisci la chiave in Impostazioni. Se hai un <b>Bin ID</b> esistente, inseriscilo; se lo lasci vuoto, l'app crea un nuovo bin privato con i tuoi appunti e mostra il suo ID.</li>
+                    <li>Premi <b>Salva configurazione e crea il bin se necessario</b>.</li>
                     <li>Da quel momento gli appunti si salvano sul cloud a ogni modifica. All'avvio, se il cloud è diverso dal dispositivo, l'app chiede se caricare la versione cloud.</li>
                     <li><b>Salva ora</b> / <b>Carica da cloud</b> per farlo manualmente; <b>Disconnetti cloud</b> per interrompere.</li>
                 </ul>` },
             { title: "13. Note e privacy", body: `
-                <p>Gli appunti e la chiave Gemini restano su questo dispositivo. Se svuoti i dati del browser, li perdi: usa i backup. La chiave e le credenziali cloud non vengono condivise con nessuno tranne i rispettivi servizi (Google / JSONBin) quando le usi.</p>` },
+                <p>Gli appunti e le chiavi vengono salvati nel browser di questo dispositivo. Quando usi l'AI, il testo dell'appunto viene inviato a Gemini; quando configuri JSONBin, gli appunti vengono inviati al tuo bin. Se svuoti i dati del browser, usa un backup per ripristinarli.</p>` },
             { title: "14. Problemi frequenti", body: `
                 <ul>
                     <li><b>L'AI non risponde</b>: controlla la chiave Gemini in Impostazioni.</li>
-                    <li><b>Errore cloud 401</b>: Master Key errata. <b>404</b>: Bin ID errato. <b>429</b>: troppe richieste, riprova più tardi.</li>
+                    <li><b>Errore cloud 401</b>: chiave errata. <b>403</b>: permessi insufficienti. <b>404</b>: Bin ID errato. <b>429</b>: troppe richieste, riprova più tardi.</li>
                     <li><b>Ho perso un appunto</b>: controlla l'archivio, oppure importa un backup.</li>
-                    <li><b>Il promemoria non mi avvisa</b>: l'avviso è gestito dal calendario, non dall'app; assicurati di aver aggiunto l'evento al calendario. Con Google Calendar l'avviso preciso va impostato usando il file .ics.</li>
+                    <li><b>Il promemoria non mi avvisa</b>: assicurati di aver aggiunto e salvato l'evento nel calendario. Il badge nell'appunto non conferma che l'evento sia stato salvato.</li>
                 </ul>` }
         ];
 
@@ -1369,11 +1687,12 @@
         }
         function openManual() {
             if (!manualBuilt) buildManual();
-            closeSettings();
-            document.getElementById('manualModal').style.display = 'flex';
+            const returnFocus = modalReturnFocus.settingsModal || document.activeElement;
+            hideModal('settingsModal', false);
+            showModal('manualModal', returnFocus);
         }
         function closeManual() {
-            document.getElementById('manualModal').style.display = 'none';
+            hideModal('manualModal');
         }
 
         function printManual() {
@@ -1430,11 +1749,11 @@
             document.getElementById('reminderDate').value = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
             document.getElementById('reminderTime').value = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
             document.getElementById('reminderRemoveBtn').style.display = (note && note.reminderAt) ? 'block' : 'none';
-            document.getElementById('reminderModal').style.display = 'flex';
+            showModal('reminderModal');
         }
 
         function closeReminder() {
-            document.getElementById('reminderModal').style.display = 'none';
+            hideModal('reminderModal');
             reminderNoteId = null;
         }
 
@@ -1487,7 +1806,7 @@
             note.reminderAt = dt.toISOString();
             saveNotes();
             closeReminder();
-            showMessage('Promemoria creato: aprilo per aggiungerlo al calendario.');
+            showMessage('Evento scaricato: aprilo e aggiungilo al calendario per ricevere l’avviso.');
         }
 
         function openGoogleCalendar() {
@@ -1501,25 +1820,99 @@
                 + '&text=' + encodeURIComponent(title)
                 + '&dates=' + toICSUTC(dt) + '/' + toICSUTC(end)
                 + '&details=' + encodeURIComponent(note.text || '');
-            window.open(url, '_blank');
+            const opened = window.open(url, '_blank');
+            if (!opened) {
+                showMessage('Non è stato possibile aprire Google Calendar. Consenti i popup e riprova.');
+                return;
+            }
 
             note.reminderAt = dt.toISOString();
             saveNotes();
             closeReminder();
+            showMessage('Evento preparato: salvalo in Google Calendar per ricevere l’avviso.');
         }
 
         function removeReminder() {
             const note = notes.find(n => n.id === reminderNoteId);
             if (note) { delete note.reminderAt; saveNotes(); }
             closeReminder();
-            showMessage("Promemoria rimosso dall'appunto. L'evento già nel calendario resta.");
+            showMessage("Indicazione rimossa dall'appunto. Eventuali eventi nel calendario restano.");
+        }
+
+        // --- Importazione da Google Keep (file .json di Takeout) ---
+        async function importFromKeep(event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
+
+            let added = 0, skipped = 0, errors = 0;
+            const existingIds = new Set(notes.map(n => n.id));
+
+            for (const file of files) {
+                try {
+                    const data = JSON.parse(await file.text());
+                    if (typeof data !== 'object' || data === null) { errors++; continue; }
+                    if (data.isTrashed) { skipped++; continue; }
+
+                    // Corpo: nota di testo oppure elenco (checklist)
+                    let body = '';
+                    if (typeof data.textContent === 'string') {
+                        body = data.textContent;
+                    } else if (Array.isArray(data.listContent)) {
+                        body = data.listContent
+                            .map(it => (it.isChecked ? '☑ ' : '☐ ') + (it.text || ''))
+                            .join('\n');
+                    }
+                    const title = (data.title || '').trim();
+                    let text = title ? (body ? title + '\n\n' + body : title) : body;
+                    text = text.trim();
+                    if (!text) { skipped++; continue; }
+
+                    const tags = Array.isArray(data.labels)
+                        ? data.labels.map(l => (l.name || '').trim().toLowerCase()).filter(Boolean)
+                        : [];
+
+                    const usec = data.userEditedTimestampUsec || data.createdTimestampUsec || 0;
+                    const ts = usec ? Math.round(usec / 1000) : Date.now();
+                    const id = data.createdTimestampUsec ? Math.floor(data.createdTimestampUsec / 1000) : (Date.now() + added);
+                    if (existingIds.has(id)) { skipped++; continue; }
+                    existingIds.add(id);
+
+                    const d = new Date(ts);
+                    const dateLabel = d.toLocaleDateString() + ' ' +
+                        d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    notes.push({
+                        id: id,
+                        text: text,
+                        category: '',
+                        tags: tags,
+                        pinned: !!data.isPinned,
+                        archived: !!data.isArchived,
+                        date: dateLabel,
+                        timestamp: ts
+                    });
+                    added++;
+                } catch (e) {
+                    errors++;
+                }
+            }
+
+            event.target.value = '';
+            if (added > 0) saveNotes();
+
+            let msg = `Importati ${added} appunti da Google Keep`;
+            if (skipped) msg += `, ${skipped} saltati`;
+            if (errors) msg += `, ${errors} file non validi`;
+            showMessage(msg + '.');
         }
 
         // Chiudi le modali cliccando sullo sfondo scuro
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', e => {
                 if (e.target === overlay && overlay.id !== 'apiKeyModal') {
-                    overlay.style.display = 'none';
+                    ({ categoryModal: closeCategoryModal, settingsModal: closeSettings,
+                       manualModal: closeManual, reminderModal: closeReminder,
+                       installModal: closeInstallHelp })[overlay.id]?.();
                 }
             });
         });
@@ -1529,6 +1922,7 @@
         renderTags();
         renderCloudCard();
         checkCloudOnStart();
+        updateInstallButton();
     </script>
 </body>
 </html>
