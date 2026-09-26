@@ -493,6 +493,7 @@
             </div>
 
             <button class="btn-secondary" style="margin-top:14px;" onclick="closeSettings()">Chiudi</button>
+            <p class="section-hint">Versione PWA 2026-09-26.4</p>
         </div>
     </div>
 
@@ -649,9 +650,9 @@
         let dictationStopping = false;
         let dictationError = false;
         let discardDictationResults = false;
-        let committedSpeechResults = 0;
-        let lastFinalSpeech = '';
-        let lastFinalSpeechAt = 0;
+        let dictationBaseText = '';
+        let confirmedSpeech = '';
+        let draftSpeech = '';
 
         function setDictationStatus(message) {
             document.getElementById('dictationStatus').textContent = message;
@@ -662,34 +663,47 @@
             button.setAttribute('aria-pressed', String(dictationActive));
             button.disabled = dictationStopping || !dictationRecognition;
         }
-        function appendRecognizedText(spokenText) {
-            const text = spokenText.trim();
-            if (!text) return;
-            const field = document.getElementById('noteText');
-            const position = field.value.length;
-            const prefix = field.value && !/\s$/.test(field.value) ? ' ' : '';
-            field.setRangeText(prefix + text, position, position, 'end');
-        }
         function speechWords(text) {
             return text.trim().split(/\s+/).filter(Boolean);
         }
         function normalizeSpeechWord(word) {
             return word.toLocaleLowerCase('it-IT').replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
         }
-        function appendNewSpeech(spokenText) {
-            const words = speechWords(spokenText);
-            if (!words.length) return;
-            const previous = speechWords(lastFinalSpeech);
-            let newWords = words;
-            const recentlyCommitted = Date.now() - lastFinalSpeechAt < 8000;
-            if (previous.length && previous.length <= words.length &&
-                (recentlyCommitted || previous.length < words.length) &&
-                previous.every((word, index) => normalizeSpeechWord(word) === normalizeSpeechWord(words[index]))) {
-                newWords = words.slice(previous.length);
+        function mergeSpeechSegments(previousText, nextText) {
+            const previous = speechWords(previousText);
+            const next = speechWords(nextText);
+            if (!previous.length) return next.join(' ');
+            if (!next.length) return previous.join(' ');
+            const same = (a, b) => normalizeSpeechWord(a) === normalizeSpeechWord(b);
+            if (previous.length <= next.length && previous.every((word, i) => same(word, next[i]))) {
+                return next.join(' ');
             }
-            if (newWords.length) appendRecognizedText(newWords.join(' '));
-            lastFinalSpeech = spokenText.trim();
-            lastFinalSpeechAt = Date.now();
+            if (next.length <= previous.length && next.every((word, i) => same(word, previous[i]))) {
+                return previous.join(' ');
+            }
+            for (let count = Math.min(previous.length, next.length); count > 0; count--) {
+                if (previous.slice(-count).every((word, i) => same(word, next[i]))) {
+                    return previous.concat(next.slice(count)).join(' ');
+                }
+            }
+            return previous.concat(next).join(' ');
+        }
+        function mergeSpeechResults(results, finalOnly) {
+            let transcript = '';
+            for (let i = 0; i < results.length; i++) {
+                const result = results[i];
+                if (result.isFinal === finalOnly) {
+                    transcript = mergeSpeechSegments(transcript, result[0].transcript);
+                }
+            }
+            return transcript;
+        }
+        function renderDictationText() {
+            const field = document.getElementById('noteText');
+            const transcript = mergeSpeechSegments(confirmedSpeech, draftSpeech);
+            const separator = dictationBaseText && transcript && !/\s$/.test(dictationBaseText) ? ' ' : '';
+            field.value = dictationBaseText + separator + transcript;
+            field.selectionStart = field.selectionEnd = field.value.length;
         }
         function cancelDictation() {
             if (!dictationRecognition || (!dictationActive && !dictationStopping)) return;
@@ -717,18 +731,12 @@
             };
             dictationRecognition.onresult = event => {
                 if (discardDictationResults) return;
-                for (let i = committedSpeechResults; i < event.results.length; i++) {
-                    const result = event.results[i];
-                    if (!result.isFinal) break;
-                    appendNewSpeech(result[0].transcript);
-                    committedSpeechResults = i + 1;
-                }
-                const interim = [];
-                for (let i = committedSpeechResults; i < event.results.length; i++) {
-                    if (!event.results[i].isFinal) interim.push(event.results[i][0].transcript);
-                }
-                document.getElementById('dictationPreview').textContent = interim.length
-                    ? `In riconoscimento: ${interim.join(' ')}` : '';
+                const finals = mergeSpeechResults(event.results, true);
+                confirmedSpeech = mergeSpeechSegments(confirmedSpeech, finals);
+                draftSpeech = mergeSpeechResults(event.results, false);
+                renderDictationText();
+                document.getElementById('dictationPreview').textContent = draftSpeech
+                    ? `In riconoscimento: ${draftSpeech}` : '';
             };
             dictationRecognition.onerror = event => {
                 if (discardDictationResults && event.error === 'aborted') return;
@@ -745,6 +753,7 @@
             dictationRecognition.onend = () => {
                 dictationActive = false;
                 dictationStopping = false;
+                document.getElementById('noteText').readOnly = false;
                 document.getElementById('dictationPreview').textContent = '';
                 if (!dictationError && !discardDictationResults) setDictationStatus('Dettatura terminata.');
                 discardDictationResults = false;
@@ -764,17 +773,19 @@
             if (dictationStopping) return;
             dictationError = false;
             discardDictationResults = false;
-            committedSpeechResults = 0;
-            lastFinalSpeech = '';
-            lastFinalSpeechAt = 0;
+            dictationBaseText = document.getElementById('noteText').value;
+            confirmedSpeech = '';
+            draftSpeech = '';
             document.getElementById('dictationPreview').textContent = '';
             try {
+                document.getElementById('noteText').readOnly = true;
                 dictationRecognition.start();
                 dictationActive = true;
                 setDictationStatus('Attivazione del microfono…');
                 updateDictationButton();
             } catch (err) {
                 dictationActive = false;
+                document.getElementById('noteText').readOnly = false;
                 setDictationStatus('Impossibile avviare il microfono. Riprova.');
                 updateDictationButton();
             }

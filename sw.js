@@ -1,4 +1,4 @@
-const CACHE_NAME = 'i-miei-appunti-v3';
+const CACHE_NAME = 'i-miei-appunti-v4';
 const APP_FILES = [
   './',
   './index.html',

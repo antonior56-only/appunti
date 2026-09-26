@@ -10,6 +10,11 @@ Per installare, pubblica l'intera cartella su un sito HTTPS e apri index.html,
 oppure avviala in locale con un server su localhost. Aprire index.html con
 doppio clic (indirizzo file://) non abilita l'installazione PWA.
 
+Per aggiornare una PWA gia' installata, sostituisci tutti i file della cartella
+sullo stesso indirizzo HTTPS usato per l'installazione. Apri l'app con una
+connessione, ricarica e riavviala. In Impostazioni verifica che compaia
+"Versione PWA 2026-09-26.4".
+
 Esempio con Python, eseguito dentro questa cartella:
     python -m http.server 8000
 Poi apri http://localhost:8000/ nel browser.
