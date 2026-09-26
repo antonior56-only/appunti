@@ -41,6 +41,13 @@
             font-family: inherit;
         }
         textarea { resize: vertical; min-height: 120px; }
+        .dictation-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .dictation-controls button { width: auto; margin: 0; background: #34495e; }
+        .dictation-controls button:hover { background: #2c3e50; }
+        .dictation-controls button[aria-pressed="true"] { background: #c0392b; }
+        .dictation-controls button:disabled { background: #95a5a6; cursor: not-allowed; }
+        .dictation-status { font-size: 13px; color: #555; }
+        .dictation-preview { min-height: 1.2em; margin: 0 0 10px; font-size: 13px; color: #666; font-style: italic; }
         button {
             background-color: #3498db;
             color: white;
@@ -551,6 +558,12 @@
         <div id="messageBox" role="status" aria-live="polite"></div>
         <label class="sr-only" for="noteText">Testo dell'appunto</label>
         <textarea id="noteText" placeholder="Scrivi il tuo appunto qui..."></textarea>
+        <div class="dictation-controls">
+            <button id="dictationBtn" type="button" aria-pressed="false" onclick="toggleDictation()">🎙️ Detta</button>
+            <span id="dictationStatus" class="dictation-status" role="status" aria-live="polite"></span>
+        </div>
+        <p id="dictationPreview" class="dictation-preview" aria-live="off"></p>
+        <p class="section-hint">Puoi anche dettare il testo. Il browser potrebbe usare un servizio online per riconoscere la voce.</p>
 
         <button class="btn-purple" onclick="askAiToOrganize()">✨ Aiutami con l'AI (organizza appunto)</button>
         <p class="section-hint">Usando l'AI, il testo dell'appunto viene inviato a Gemini per organizzarlo.</p>
@@ -631,6 +644,116 @@
         let lastCloudSaveLabel = localStorage.getItem('lastCloudSave') || '';
         let deferredInstallPrompt = null;
         let installedThisSession = false;
+        let dictationRecognition = null;
+        let dictationActive = false;
+        let dictationStopping = false;
+        let dictationError = false;
+        let discardDictationResults = false;
+        let committedSpeechResults = 0;
+
+        function setDictationStatus(message) {
+            document.getElementById('dictationStatus').textContent = message;
+        }
+        function updateDictationButton() {
+            const button = document.getElementById('dictationBtn');
+            button.textContent = dictationActive ? '⏹ Ferma dettatura' : '🎙️ Detta';
+            button.setAttribute('aria-pressed', String(dictationActive));
+            button.disabled = dictationStopping || !dictationRecognition;
+        }
+        function appendRecognizedText(spokenText) {
+            const text = spokenText.trim();
+            if (!text) return;
+            const field = document.getElementById('noteText');
+            const position = field.value.length;
+            const prefix = field.value && !/\s$/.test(field.value) ? ' ' : '';
+            field.setRangeText(prefix + text, position, position, 'end');
+        }
+        function cancelDictation() {
+            if (!dictationRecognition || (!dictationActive && !dictationStopping)) return;
+            discardDictationResults = true;
+            setDictationStatus('Dettatura annullata.');
+            dictationRecognition.abort();
+        }
+        function initializeDictation() {
+            const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!Recognition) {
+                setDictationStatus('Dettatura non disponibile in questo browser; puoi continuare a digitare.');
+                updateDictationButton();
+                return;
+            }
+            dictationRecognition = new Recognition();
+            dictationRecognition.lang = 'it-IT';
+            dictationRecognition.continuous = true;
+            dictationRecognition.interimResults = true;
+            dictationRecognition.maxAlternatives = 1;
+            dictationRecognition.onstart = () => {
+                dictationActive = true;
+                dictationStopping = false;
+                setDictationStatus('In ascolto… parla nel microfono.');
+                updateDictationButton();
+            };
+            dictationRecognition.onresult = event => {
+                if (discardDictationResults) return;
+                for (let i = committedSpeechResults; i < event.results.length; i++) {
+                    const result = event.results[i];
+                    if (!result.isFinal) break;
+                    appendRecognizedText(result[0].transcript);
+                    committedSpeechResults = i + 1;
+                }
+                const interim = [];
+                for (let i = committedSpeechResults; i < event.results.length; i++) {
+                    if (!event.results[i].isFinal) interim.push(event.results[i][0].transcript);
+                }
+                document.getElementById('dictationPreview').textContent = interim.length
+                    ? `In riconoscimento: ${interim.join(' ')}` : '';
+            };
+            dictationRecognition.onerror = event => {
+                if (discardDictationResults && event.error === 'aborted') return;
+                dictationError = true;
+                const messages = {
+                    'not-allowed': 'Consenti l’accesso al microfono nel browser per dettare.',
+                    'service-not-allowed': 'Il riconoscimento vocale è bloccato dal browser.',
+                    'audio-capture': 'Microfono non disponibile. Controlla il dispositivo.',
+                    'no-speech': 'Non è stata rilevata voce. Riprova.',
+                    network: 'Il riconoscimento vocale richiede una connessione in questo browser.'
+                };
+                setDictationStatus(messages[event.error] || 'La dettatura si è interrotta. Riprova.');
+            };
+            dictationRecognition.onend = () => {
+                dictationActive = false;
+                dictationStopping = false;
+                document.getElementById('dictationPreview').textContent = '';
+                if (!dictationError && !discardDictationResults) setDictationStatus('Dettatura terminata.');
+                discardDictationResults = false;
+                updateDictationButton();
+            };
+            updateDictationButton();
+        }
+        function toggleDictation() {
+            if (!dictationRecognition) return;
+            if (dictationActive) {
+                dictationStopping = true;
+                setDictationStatus('Sto terminando la dettatura…');
+                updateDictationButton();
+                dictationRecognition.stop();
+                return;
+            }
+            if (dictationStopping) return;
+            dictationError = false;
+            discardDictationResults = false;
+            committedSpeechResults = 0;
+            document.getElementById('dictationPreview').textContent = '';
+            try {
+                dictationRecognition.start();
+                dictationActive = true;
+                setDictationStatus('Attivazione del microfono…');
+                updateDictationButton();
+            } catch (err) {
+                dictationActive = false;
+                setDictationStatus('Impossibile avviare il microfono. Riprova.');
+                updateDictationButton();
+            }
+        }
 
         function runningAsApp() {
             return window.matchMedia('(display-mode: standalone)').matches ||
@@ -952,6 +1075,10 @@
         }
 
         async function askAiToOrganize() {
+            if (dictationActive || dictationStopping) {
+                showMessage('Termina la dettatura prima di usare l’AI.');
+                return;
+            }
             if (!apiKey) {
                 openApiKeyModal();
                 return;
@@ -1016,6 +1143,10 @@
         }
 
         function saveNote() {
+            if (dictationActive || dictationStopping) {
+                showMessage('Termina la dettatura prima di salvare l’appunto.');
+                return;
+            }
             const text = document.getElementById('noteText').value.trim();
             const category = document.getElementById('noteCategory').value;
             const tagsInput = document.getElementById('noteTags').value;
@@ -1061,12 +1192,17 @@
         }
 
         function clearForm() {
+            cancelDictation();
             document.getElementById('noteText').value = '';
             document.getElementById('noteCategory').value = '';
             document.getElementById('noteTags').value = '';
         }
 
         function editNote(id) {
+            if (dictationActive || dictationStopping) {
+                showMessage('Termina la dettatura prima di cambiare appunto.');
+                return;
+            }
             const note = notes.find(n => n.id === id);
             if (!note) return;
             editingId = id;
@@ -1608,7 +1744,8 @@
                 <p>"I Miei Appunti" è un blocco note personale per non dimenticare cose da fare o da tenere presente. I dati restano su questo dispositivo (nel browser); puoi salvarli su file o su cloud per non perderli.</p>` },
             { title: "2. Creare un appunto", body: `
                 <ul>
-                    <li>Scrivi il testo nel riquadro in alto.</li>
+                    <li>Scrivi il testo nel riquadro in alto oppure premi <b>🎙️ Detta</b>, consenti l'uso del microfono e parla. Il testo riconosciuto viene aggiunto alla fine di ciò che hai già scritto.</li>
+                    <li>Premi <b>⏹ Ferma dettatura</b> quando hai finito, poi rileggi e correggi il testo prima di salvarlo. Se il browser non supporta la dettatura, puoi continuare a digitare.</li>
                     <li>Scegli una <b>categoria</b> (facoltativa) e aggiungi delle <b>etichette</b> separate da virgola (es: urgente, lavoro).</li>
                     <li>Premi <b>Salva appunto</b>.</li>
                 </ul>` },
@@ -1655,7 +1792,7 @@
                     <li><b>Salva ora</b> / <b>Carica da cloud</b> per farlo manualmente; <b>Disconnetti cloud</b> per interrompere.</li>
                 </ul>` },
             { title: "13. Note e privacy", body: `
-                <p>Gli appunti e le chiavi vengono salvati nel browser di questo dispositivo. Quando usi l'AI, il testo dell'appunto viene inviato a Gemini; quando configuri JSONBin, gli appunti vengono inviati al tuo bin. Se svuoti i dati del browser, usa un backup per ripristinarli.</p>` },
+                <p>Gli appunti e le chiavi vengono salvati nel browser di questo dispositivo. Quando usi l'AI, il testo dell'appunto viene inviato a Gemini; quando configuri JSONBin, gli appunti vengono inviati al tuo bin. La dettatura usa il riconoscimento vocale del browser, che in alcuni browser può inviare l'audio a un servizio online. Se svuoti i dati del browser, usa un backup per ripristinarli.</p>` },
             { title: "14. Problemi frequenti", body: `
                 <ul>
                     <li><b>L'AI non risponde</b>: controlla la chiave Gemini in Impostazioni.</li>
@@ -1923,6 +2060,7 @@
         renderCloudCard();
         checkCloudOnStart();
         updateInstallButton();
+        initializeDictation();
     </script>
 </body>
 </html>

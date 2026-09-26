@@ -25,3 +25,7 @@ Impostazioni usando la tua chiave e il Bin ID.
 
 L'app funziona offline dopo la prima visita completata; funzioni Gemini,
 JSONBin e Google Calendar richiedono invece una connessione.
+
+La dettatura usa il riconoscimento vocale del browser. Se il browser non lo
+supporta, il campo di testo resta utilizzabile normalmente. In alcuni browser
+il riconoscimento invia l'audio a un servizio online e richiede la connessione.
