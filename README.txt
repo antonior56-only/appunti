@@ -13,7 +13,7 @@ doppio clic (indirizzo file://) non abilita l'installazione PWA.
 Per aggiornare una PWA gia' installata, sostituisci i file della cartella
 sullo stesso indirizzo HTTPS usato per l'installazione. Apri l'app con una
 connessione: apparira' "Aggiorna ora" quando il nuovo service worker e' pronto.
-In Impostazioni verifica che compaia "Versione PWA 2026-09-27.5".
+In Impostazioni verifica che compaia "Versione PWA 2026-09-27.6".
 
 Esempio con Python, eseguito dentro questa cartella:
     python -m http.server 8000
@@ -52,6 +52,11 @@ Puoi creare appunti di tipo "Lista da spuntare" e segnare le voci completate
 direttamente nell'elenco. Le liste esportate da Google Keep diventano liste
 spuntabili. Gli eventuali modelli personali salvati in versioni precedenti
 restano nei backup e nella sincronizzazione, ma non compaiono nell'interfaccia.
+
+La ricerca trova anche parole scritte con o senza accenti e attende un istante
+dopo la digitazione prima di aggiornare l'elenco. Se il salvataggio locale
+fallisce, l'app avvisa e lascia il testo nel modulo; esporta un backup prima di
+chiudere la pagina.
 
 Importazione Samsung Notes: esporta le singole note da Samsung Notes come
 "File di testo" (.txt), poi scegli insieme i file nelle Impostazioni della

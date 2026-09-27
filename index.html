@@ -518,7 +518,7 @@
             </div>
 
             <button class="btn-secondary" style="margin-top:14px;" onclick="closeSettings()">Chiudi</button>
-            <p class="section-hint">Versione PWA 2026-09-27.5</p>
+            <p class="section-hint">Versione PWA 2026-09-27.6</p>
         </div>
     </div>
 
@@ -641,7 +641,7 @@
     <div class="card">
         <div class="flex-row" style="margin-bottom: 10px;">
             <label class="sr-only" for="searchInput">Cerca negli appunti</label>
-            <input type="text" id="searchInput" class="flex-2" placeholder="Cerca nel testo o nei tag..." onkeyup="filterNotes()">
+            <input type="text" id="searchInput" class="flex-2" placeholder="Cerca nel testo o nei tag..." oninput="scheduleFilterNotes()">
         </div>
         <div class="flex-row">
             <label class="sr-only" for="filterCategory">Filtra per categoria</label>
@@ -700,6 +700,7 @@
         let draftSpeech = '';
         let speechUndoStack = [];
         let draftSaveTimer = null;
+        let searchTimer = null;
         let pendingWorker = null;
         let updateReloading = false;
         function newChecklistId() {
@@ -754,8 +755,12 @@
                 checklist: document.getElementById('noteKind').value === 'checklist' ? readChecklistRows() : []
             };
             if (draft.text || draft.tags || draft.category || draft.editingId !== null || draft.checklist.length) {
-                localStorage.setItem('appuntiDraft', JSON.stringify(draft));
-                document.getElementById('draftStatus').textContent = 'Bozza salvata su questo dispositivo.';
+                try {
+                    localStorage.setItem('appuntiDraft', JSON.stringify(draft));
+                    document.getElementById('draftStatus').textContent = 'Bozza salvata su questo dispositivo.';
+                } catch (err) {
+                    document.getElementById('draftStatus').textContent = 'Bozza non salvata: spazio del dispositivo insufficiente. Copia il testo o esporta un backup prima di chiudere l’app.';
+                }
             } else {
                 localStorage.removeItem('appuntiDraft');
                 document.getElementById('draftStatus').textContent = '';
@@ -1163,10 +1168,20 @@
         }
 
         function saveNotes() {
-            localStorage.setItem('myNotes', JSON.stringify(notes));
+            try {
+                localStorage.setItem('myNotes', JSON.stringify(notes));
+            } catch (err) {
+                const message = 'Impossibile salvare gli appunti sul dispositivo. Lo spazio potrebbe essere esaurito: esporta un backup ed elimina appunti vecchi. Non chiudere l’app finché non hai salvato i dati.';
+                const box = document.getElementById('messageBox');
+                box.innerText = message;
+                box.style.display = 'block';
+                alert(message);
+                return false;
+            }
             renderNotes();
             renderTags();
             scheduleCloudSave();
+            return true;
         }
         function touchNote(note) { note.updatedAt = new Date().toISOString(); }
         function nextNoteId() {
@@ -1444,24 +1459,28 @@
             if (editingId !== null) {
                 // Aggiorna appunto esistente
                 const note = notes.find(n => n.id === editingId);
-                if (note) {
-                    note.text = text;
-                    note.kind = kind;
-                    note.checklist = checklist;
-                    note.category = category;
-                    note.tags = tags;
-                    note.edited = true;
-                    note.editedDate = currentTimestampLabel();
-                    touchNote(note);
+                if (!note) return;
+                const previous = { ...note };
+                note.text = text;
+                note.kind = kind;
+                note.checklist = checklist;
+                note.category = category;
+                note.tags = tags;
+                note.edited = true;
+                note.editedDate = currentTimestampLabel();
+                touchNote(note);
+                if (!saveNotes()) {
+                    Object.keys(note).forEach(key => delete note[key]);
+                    Object.assign(note, previous);
+                    return;
                 }
                 cancelEdit();
-                saveNotes();
                 showMessage("Appunto aggiornato.");
                 return;
             }
 
             // Nuovo appunto
-            notes.unshift({
+            const newNote = {
                 id: nextNoteId(),
                 text: text,
                 kind,
@@ -1472,10 +1491,13 @@
                 date: currentTimestampLabel(),
                 timestamp: Date.now(),
                 updatedAt: new Date().toISOString()
-            });
-
+            };
+            notes.unshift(newNote);
+            if (!saveNotes()) {
+                notes.shift();
+                return;
+            }
             clearForm();
-            saveNotes();
         }
 
         function clearForm() {
@@ -1624,18 +1646,45 @@
         }
 
         function filterNotes() {
+            clearTimeout(searchTimer);
             renderNotes();
+        }
+
+        function scheduleFilterNotes() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(filterNotes, 180);
+        }
+
+        function normalizeSearch(value) {
+            return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('it-IT');
         }
 
         function highlightText(text, query) {
             if (!query) return escapeHtml(text);
-            const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`(${escapedQuery})`, 'gi');
-            let result = '', start = 0;
-            for (const match of text.matchAll(regex)) {
-                result += escapeHtml(text.slice(start, match.index));
-                result += `<mark>${escapeHtml(match[0])}</mark>`;
-                start = match.index + match[0].length;
+            let folded = '';
+            const starts = [], ends = [];
+            let position = 0;
+            for (const char of text) {
+                const end = position + char.length;
+                const part = normalizeSearch(char);
+                if (!part && ends.length) ends[ends.length - 1] = end;
+                for (let i = 0; i < part.length; i++) {
+                    folded += part[i];
+                    starts.push(position);
+                    ends.push(end);
+                }
+                position = end;
+            }
+            let result = '', start = 0, searchFrom = 0;
+            while (true) {
+                const found = folded.indexOf(query, searchFrom);
+                if (found < 0) break;
+                const matchStart = starts[found];
+                const matchEnd = ends[found + query.length - 1];
+                result += escapeHtml(text.slice(start, matchStart));
+                result += `<mark>${escapeHtml(text.slice(matchStart, matchEnd))}</mark>`;
+                start = matchEnd;
+                searchFrom = found + query.length;
             }
             return result + escapeHtml(text.slice(start));
         }
@@ -1659,7 +1708,7 @@
         }
 
         function renderNotes() {
-            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const query = normalizeSearch(document.getElementById('searchInput').value.trim());
             const catFilter = document.getElementById('filterCategory').value;
             const sortOrder = document.getElementById('sortOrder').value;
             const container = document.getElementById('notesContainer');
@@ -1682,9 +1731,9 @@
                 const inCurrentView = viewMode === 'trash' ? n.deletedAt && !n.purgedAt
                     : !n.deletedAt && (viewMode === 'archived' ? n.archived : !n.archived);
                 if (!inCurrentView) return false;
-                const matchesText = n.text.toLowerCase().includes(query) ||
-                    (n.checklist || []).some(item => item.text.toLowerCase().includes(query)) ||
-                    (n.tags && n.tags.some(t => t.includes(query)));
+                const matchesText = normalizeSearch(n.text).includes(query) ||
+                    (n.checklist || []).some(item => normalizeSearch(item.text).includes(query)) ||
+                    (n.tags && n.tags.some(t => normalizeSearch(t).includes(query)));
                 const matchesTag = activeTag ? (n.tags && n.tags.includes(activeTag)) : true;
                 const matchesCat = catFilter ? n.category === catFilter : true;
 
