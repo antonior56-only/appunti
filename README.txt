@@ -13,7 +13,7 @@ doppio clic (indirizzo file://) non abilita l'installazione PWA.
 Per aggiornare una PWA gia' installata, sostituisci i file della cartella
 sullo stesso indirizzo HTTPS usato per l'installazione. Apri l'app con una
 connessione: apparira' "Aggiorna ora" quando il nuovo service worker e' pronto.
-In Impostazioni verifica che compaia "Versione PWA 2026-09-27.6".
+In Impostazioni verifica che compaia "Versione PWA 2026-09-27.7".
 
 Esempio con Python, eseguito dentro questa cartella:
     python -m http.server 8000
@@ -52,6 +52,8 @@ Puoi creare appunti di tipo "Lista da spuntare" e segnare le voci completate
 direttamente nell'elenco. Le liste esportate da Google Keep diventano liste
 spuntabili. Gli eventuali modelli personali salvati in versioni precedenti
 restano nei backup e nella sincronizzazione, ma non compaiono nell'interfaccia.
+Quando scegli una lista, il campo del titolo diventa compatto e resta
+ridimensionabile; le caselle delle voci hanno spazio adeguato per scrivere.
 
 La ricerca trova anche parole scritte con o senza accenti e attende un istante
 dopo la digitazione prima di aggiornare l'elenco. Se il salvataggio locale

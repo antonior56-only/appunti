@@ -41,6 +41,7 @@
             font-family: inherit;
         }
         textarea { resize: vertical; min-height: 120px; }
+        #noteText.checklist-title { min-height: 48px; height: 54px; }
         .dictation-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
         .dictation-controls button { width: auto; margin: 0; background: #34495e; }
         .dictation-controls button:hover { background: #2c3e50; }
@@ -167,8 +168,9 @@
             font-size: 15px;
         }
         .checklist-editor-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-        .checklist-editor-row input[type="text"] { flex: 1; margin: 0; min-width: 0; }
-        .checklist-editor-row button { width: auto; margin: 0; }
+        .checklist-editor-row input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; margin: 0; padding: 0; }
+        .checklist-editor-row input[type="text"] { flex: 1 1 auto; width: auto; max-width: none; margin: 0; min-width: 0; }
+        .checklist-editor-row button { flex: 0 0 auto; width: auto; margin: 0; }
         .checklist-items { list-style: none; padding: 0; margin: 8px 0; }
         .checklist-items li { display: flex; align-items: flex-start; gap: 8px; margin: 7px 0; }
         .checklist-items input { width: auto; margin: 2px 0 0; }
@@ -518,7 +520,7 @@
             </div>
 
             <button class="btn-secondary" style="margin-top:14px;" onclick="closeSettings()">Chiudi</button>
-            <p class="section-hint">Versione PWA 2026-09-27.6</p>
+            <p class="section-hint">Versione PWA 2026-09-27.7</p>
         </div>
     </div>
 
@@ -591,7 +593,7 @@
             <option value="text">Testo</option>
             <option value="checklist">Lista da spuntare</option>
         </select>
-        <label class="sr-only" for="noteText">Testo dell'appunto</label>
+        <label id="noteTextLabel" class="sr-only" for="noteText">Testo dell'appunto</label>
         <textarea id="noteText" placeholder="Scrivi il tuo appunto qui..."></textarea>
         <div id="checklistEditor" hidden>
             <p class="section-hint">Aggiungi le voci della lista. Il testo sopra è facoltativo.</p>
@@ -741,6 +743,12 @@
             const isChecklist = kind === 'checklist';
             document.getElementById('noteKind').value = isChecklist ? 'checklist' : 'text';
             document.getElementById('checklistEditor').hidden = !isChecklist;
+            const noteText = document.getElementById('noteText');
+            noteText.className = isChecklist ? 'checklist-title' : '';
+            noteText.placeholder = isChecklist ? 'Titolo della lista (facoltativo)' : 'Scrivi il tuo appunto qui...';
+            const label = document.getElementById('noteTextLabel');
+            label.className = isChecklist ? '' : 'sr-only';
+            label.textContent = isChecklist ? 'Titolo della lista (facoltativo)' : "Testo dell'appunto";
             if (isChecklist && !document.getElementById('checklistRows').children.length) addChecklistRow();
             scheduleDraftSave();
         }
@@ -1506,8 +1514,7 @@
             document.getElementById('noteCategory').value = '';
             document.getElementById('noteTags').value = '';
             document.getElementById('checklistRows').innerHTML = '';
-            document.getElementById('noteKind').value = 'text';
-            document.getElementById('checklistEditor').hidden = true;
+            setNoteKind('text');
             clearDraft();
             document.getElementById('undoSpeechBtn').disabled = true;
             speechUndoStack = [];
