@@ -518,7 +518,7 @@
             </div>
 
             <button class="btn-secondary" style="margin-top:14px;" onclick="closeSettings()">Chiudi</button>
-            <p class="section-hint">Versione PWA 2026-09-27.3</p>
+            <p class="section-hint">Versione PWA 2026-09-27.5</p>
         </div>
     </div>
 
@@ -586,15 +586,6 @@
     <!-- Area Inserimento -->
     <div class="card">
         <div id="messageBox" role="status" aria-live="polite"></div>
-        <label for="templateSelect">Modello rapido</label>
-        <div class="flex-row">
-            <select id="templateSelect" class="flex-2" aria-label="Scegli un modello"></select>
-            <button type="button" class="flex-1 btn-secondary" onclick="applySelectedTemplate()">Applica modello</button>
-        </div>
-        <div class="flex-row">
-            <button type="button" class="flex-1 btn-secondary" onclick="saveCurrentAsTemplate()">Salva come modello personale</button>
-            <button type="button" class="flex-1 delete-btn" onclick="deleteSelectedTemplate()">Elimina modello personale</button>
-        </div>
         <label for="noteKind">Tipo di appunto</label>
         <select id="noteKind" onchange="setNoteKind(this.value)">
             <option value="text">Testo</option>
@@ -711,12 +702,6 @@
         let draftSaveTimer = null;
         let pendingWorker = null;
         let updateReloading = false;
-        const BUILTIN_TEMPLATES = {
-            meeting: { name: 'Riunione', kind: 'text', text: 'Riunione\nData:\nPartecipanti:\nArgomenti:\nDecisioni:\nProssimi passi:', category: 'Lavoro', tags: ['riunione'], checklist: [] },
-            shopping: { name: 'Spesa', kind: 'checklist', text: 'Lista della spesa', category: 'Personale', tags: ['spesa'], checklist: [] },
-            idea: { name: 'Idea', kind: 'text', text: 'Titolo:\nDescrizione:\nProssimo passo:', category: 'Idee', tags: ['idea'], checklist: [] }
-        };
-
         function newChecklistId() {
             return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         }
@@ -758,82 +743,6 @@
             if (isChecklist && !document.getElementById('checklistRows').children.length) addChecklistRow();
             scheduleDraftSave();
         }
-        function renderTemplateOptions() {
-            const select = document.getElementById('templateSelect');
-            const previous = select.value;
-            select.innerHTML = '<option value="">-- Scegli un modello --</option>';
-            Object.entries(BUILTIN_TEMPLATES).forEach(([key, template]) => {
-                const option = document.createElement('option');
-                option.value = `built:${key}`;
-                option.textContent = template.name;
-                select.appendChild(option);
-            });
-            notes.filter(n => n.isTemplate && !n.deletedAt).sort((a, b) => a.templateName.localeCompare(b.templateName, 'it')).forEach(template => {
-                const option = document.createElement('option');
-                option.value = `personal:${template.id}`;
-                option.textContent = `Personale: ${template.templateName}`;
-                select.appendChild(option);
-            });
-            if (Array.from(select.options).some(option => option.value === previous)) select.value = previous;
-        }
-        function currentTemplate() {
-            const selected = document.getElementById('templateSelect').value;
-            if (selected.startsWith('built:')) return BUILTIN_TEMPLATES[selected.slice(6)];
-            if (selected.startsWith('personal:')) return notes.find(n => n.isTemplate && !n.deletedAt && n.id === Number(selected.slice(9)));
-            return null;
-        }
-        function applySelectedTemplate() {
-            if (dictationActive || dictationStopping) { showMessage('Termina la dettatura prima di applicare un modello.'); return; }
-            const template = currentTemplate();
-            if (!template) { showMessage('Scegli un modello.'); return; }
-            const hasDraft = document.getElementById('noteText').value.trim() ||
-                (document.getElementById('noteKind').value === 'checklist' && readChecklistRows().length) ||
-                document.getElementById('noteTags').value.trim();
-            if (hasDraft && !confirm('Sostituire la bozza corrente con il modello scelto?')) return;
-            cancelEdit();
-            document.getElementById('noteText').value = template.text;
-            document.getElementById('noteCategory').value = categories.includes(template.category) ? template.category : '';
-            document.getElementById('noteTags').value = (template.tags || []).join(', ');
-            document.getElementById('checklistRows').innerHTML = '';
-            setNoteKind(template.kind);
-            if (template.kind === 'checklist' && (template.checklist || []).length) {
-                document.getElementById('checklistRows').innerHTML = '';
-                template.checklist.forEach(item => addChecklistRow({ text: item.text, done: false }));
-            }
-            saveDraftNow();
-            document.getElementById('noteText').focus();
-        }
-        function saveCurrentAsTemplate() {
-            if (dictationActive || dictationStopping) { showMessage('Termina la dettatura prima di salvare un modello.'); return; }
-            const text = document.getElementById('noteText').value.trim();
-            const checklist = document.getElementById('noteKind').value === 'checklist' ? readChecklistRows() : [];
-            if (!text && !checklist.length) { showMessage('Scrivi un testo o almeno una voce per creare il modello.'); return; }
-            const name = prompt('Nome del modello personale:')?.trim();
-            if (!name) return;
-            if (notes.some(n => n.isTemplate && !n.deletedAt && n.templateName.toLocaleLowerCase('it') === name.toLocaleLowerCase('it'))) {
-                showMessage('Esiste già un modello personale con questo nome.'); return;
-            }
-            const id = nextNoteId();
-            notes.push({ id, isTemplate: true, templateName: name, kind: document.getElementById('noteKind').value,
-                text, checklist: checklist.map(item => ({...item, done: false})),
-                category: document.getElementById('noteCategory').value,
-                tags: document.getElementById('noteTags').value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean),
-                pinned: false, archived: false, date: currentTimestampLabel(), timestamp: Date.now(), updatedAt: new Date().toISOString() });
-            saveNotes();
-            document.getElementById('templateSelect').value = `personal:${id}`;
-            showMessage('Modello personale salvato.');
-        }
-        function deleteSelectedTemplate() {
-            const template = currentTemplate();
-            if (!template || !template.isTemplate) { showMessage('Scegli un modello personale da eliminare.'); return; }
-            if (!confirm(`Eliminare il modello "${template.templateName}"?`)) return;
-            template.deletedAt = new Date().toISOString();
-            touchNote(template);
-            saveNotes();
-            document.getElementById('templateSelect').value = '';
-            showMessage('Modello eliminato.');
-        }
-
         function saveDraftNow() {
             clearTimeout(draftSaveTimer);
             const draft = {
@@ -1257,7 +1166,6 @@
             localStorage.setItem('myNotes', JSON.stringify(notes));
             renderNotes();
             renderTags();
-            renderTemplateOptions();
             scheduleCloudSave();
         }
         function touchNote(note) { note.updatedAt = new Date().toISOString(); }
@@ -2325,9 +2233,7 @@
                 </ul>` },
             { title: "15. Liste da spuntare", body: `
                 <p>Nel campo <b>Tipo di appunto</b> scegli <b>Lista da spuntare</b>. Aggiungi le voci con <b>+ Aggiungi voce</b>; il testo dell'appunto è facoltativo. Dopo il salvataggio puoi spuntare le voci direttamente nella lista degli appunti. Per cambiare il testo delle voci premi <b>Modifica</b>. Le liste di Google Keep vengono importate come liste spuntabili.</p>` },
-            { title: "16. Modelli rapidi", body: `
-                <p>Seleziona un modello e premi <b>Applica modello</b> per preparare una nuova bozza. Sono inclusi Riunione, Spesa e Idea. Per creare un modello personale, compila il riquadro e premi <b>Salva come modello personale</b>; poi scegli un nome. I modelli personali sono inclusi nel backup e nella sincronizzazione JSONBin. Puoi eliminarli dal menu con <b>Elimina modello personale</b>.</p>` }
-            ,{ title: "17. Importare da Samsung Notes", body: `
+            { title: "16. Importare da Samsung Notes", body: `
                 <p>In Samsung Notes apri una nota e scegli <b>Salva come file → File di testo</b>. Ripeti per le note da trasferire. In Impostazioni seleziona insieme i file <b>.txt</b>. Il nome del file diventa il titolo dell'appunto, seguito dal testo; le righe che iniziano con ☐, ☑, [ ] o [x] diventano voci spuntabili. Se importi di nuovo un file identico, l'app lo salta. Immagini, disegni, audio e formattazione non sono contenuti nel file di testo; i file Samsung Notes (.sdocx), PDF e Word non sono importati da questa funzione.</p>` }
         ];
 

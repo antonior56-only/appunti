@@ -13,7 +13,7 @@ doppio clic (indirizzo file://) non abilita l'installazione PWA.
 Per aggiornare una PWA gia' installata, sostituisci i file della cartella
 sullo stesso indirizzo HTTPS usato per l'installazione. Apri l'app con una
 connessione: apparira' "Aggiorna ora" quando il nuovo service worker e' pronto.
-In Impostazioni verifica che compaia "Versione PWA 2026-09-27.3".
+In Impostazioni verifica che compaia "Versione PWA 2026-09-27.5".
 
 Esempio con Python, eseguito dentro questa cartella:
     python -m http.server 8000
@@ -50,9 +50,8 @@ con transazioni atomiche. Esegui anche backup JSON periodici.
 
 Puoi creare appunti di tipo "Lista da spuntare" e segnare le voci completate
 direttamente nell'elenco. Le liste esportate da Google Keep diventano liste
-spuntabili. I modelli rapidi Riunione, Spesa e Idea precompilano una nuova
-bozza. Puoi anche salvare modelli personali dal modulo corrente: sono inclusi
-nel backup JSON e nella sincronizzazione JSONBin insieme agli appunti.
+spuntabili. Gli eventuali modelli personali salvati in versioni precedenti
+restano nei backup e nella sincronizzazione, ma non compaiono nell'interfaccia.
 
 Importazione Samsung Notes: esporta le singole note da Samsung Notes come
 "File di testo" (.txt), poi scegli insieme i file nelle Impostazioni della
