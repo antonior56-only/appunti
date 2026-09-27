@@ -1,4 +1,4 @@
-const CACHE_NAME = 'i-miei-appunti-v4';
+const CACHE_NAME = 'i-miei-appunti-v7';
 const APP_FILES = [
   './',
   './index.html',
@@ -10,8 +10,12 @@ const APP_FILES = [
 
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES))
   );
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {

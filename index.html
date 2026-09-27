@@ -48,6 +48,12 @@
         .dictation-controls button:disabled { background: #95a5a6; cursor: not-allowed; }
         .dictation-status { font-size: 13px; color: #555; }
         .dictation-preview { min-height: 1.2em; margin: 0 0 10px; font-size: 13px; color: #666; font-style: italic; }
+        #speechLocalRow { font-size: 13px; display: flex; gap: 6px; align-items: center; }
+        #speechLocalRow[hidden] { display: none; }
+        #speechLocalRow input { width: auto; margin: 0; }
+        .update-banner { background: #e8f6ed; border: 1px solid #27ae60; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+        .update-banner button { width: auto; margin: 8px 0 0; }
+        .draft-status { font-size: 13px; color: #555; margin: -3px 0 10px; }
         button {
             background-color: #3498db;
             color: white;
@@ -160,6 +166,14 @@
             line-height: 1.4;
             font-size: 15px;
         }
+        .checklist-editor-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .checklist-editor-row input[type="text"] { flex: 1; margin: 0; min-width: 0; }
+        .checklist-editor-row button { width: auto; margin: 0; }
+        .checklist-items { list-style: none; padding: 0; margin: 8px 0; }
+        .checklist-items li { display: flex; align-items: flex-start; gap: 8px; margin: 7px 0; }
+        .checklist-items input { width: auto; margin: 2px 0 0; }
+        .checklist-items .done { text-decoration: line-through; color: #777; }
+        .checklist-progress { font-size: 12px; color: #666; }
         .note-tags span {
             display: inline-block;
             background: #eee;
@@ -459,17 +473,28 @@
             <p class="section-hint">
                 Esporta i tuoi appunti da <a href="https://takeout.google.com" target="_blank" rel="noopener">Google Takeout</a>
                 (seleziona solo Keep), estrai lo .zip e scegli i file <b>.json</b> della cartella "Keep".
-                Vengono importati testo, etichette e lo stato fissato/archiviato (le immagini no).
+                Vengono importati testo, liste da spuntare, etichette e lo stato fissato/archiviato (le immagini no).
             </p>
             <button class="btn-secondary" onclick="document.getElementById('keepImportFile').click()">Seleziona i file .json di Keep</button>
             <input type="file" id="keepImportFile" accept="application/json,.json" multiple style="display:none" onchange="importFromKeep(event)">
+
+            <h4>Importa da Samsung Notes</h4>
+            <p class="section-hint">
+                In Samsung Notes apri una nota, scegli <b>Salva come file → File di testo</b>, poi seleziona qui
+                uno o più file <b>.txt</b>. Ogni file diventa un appunto modificabile; il nome del file viene usato
+                come titolo. Le righe con caselle ☐/☑ o [ ]/[x] diventano una lista da spuntare. Immagini,
+                disegni, audio e formattazione non sono presenti nel file di testo.
+            </p>
+            <button class="btn-secondary" onclick="document.getElementById('samsungImportFile').click()">Seleziona i file .txt di Samsung Notes</button>
+            <input type="file" id="samsungImportFile" accept="text/plain,.txt" multiple style="display:none" onchange="importFromSamsung(event)">
 
             <h4>Backup automatico su cloud (JSONBin)</h4>
             <p class="section-hint">
                 Crea una Access Key su <a href="https://jsonbin.io" target="_blank" rel="noopener">jsonbin.io</a>
                 con permessi di creazione, lettura e aggiornamento dei bin. Inserisci un Bin ID esistente oppure
                 lascialo vuoto: l'app creerà un nuovo bin privato con i tuoi appunti. Dopo la configurazione,
-                ogni modifica verrà salvata automaticamente.
+                ogni modifica verrà sincronizzata automaticamente. Se due dispositivi modificano lo stesso appunto,
+                l'app conserva una copia del conflitto.
             </p>
             <p id="cloudStatus" class="cloud-status" role="status" aria-live="polite">Backup automatico non configurato.</p>
             <label for="cloudAuthType">Tipo di chiave JSONBin</label>
@@ -481,7 +506,7 @@
             <button id="cloudConfigBtn" onclick="saveCloudConfig()">Salva configurazione e crea il bin se necessario</button>
             <div id="cloudActions" class="flex-row" style="display:none;">
                 <button class="flex-1 btn-green" onclick="saveToCloud(true)">Salva ora</button>
-                <button class="flex-1 btn-secondary" onclick="loadFromCloud(true)">Carica da cloud</button>
+                <button class="flex-1 btn-secondary" onclick="loadFromCloud(true)">Sincronizza ora</button>
             </div>
             <button id="cloudDisconnectBtn" class="btn-secondary" style="display:none;" onclick="disconnectCloud()">Disconnetti cloud</button>
 
@@ -493,7 +518,7 @@
             </div>
 
             <button class="btn-secondary" style="margin-top:14px;" onclick="closeSettings()">Chiudi</button>
-            <p class="section-hint">Versione PWA 2026-09-26.4</p>
+            <p class="section-hint">Versione PWA 2026-09-27.3</p>
         </div>
     </div>
 
@@ -553,16 +578,43 @@
             <button class="settings-gear" title="Impostazioni" aria-label="Apri impostazioni" onclick="openSettings()">⚙️</button>
         </div>
     </div>
+    <div id="updateBanner" class="update-banner" role="status" hidden>
+        È disponibile una nuova versione dell'app.
+        <button class="btn-green" type="button" onclick="applyAppUpdate()">Aggiorna ora</button>
+    </div>
 
     <!-- Area Inserimento -->
     <div class="card">
         <div id="messageBox" role="status" aria-live="polite"></div>
+        <label for="templateSelect">Modello rapido</label>
+        <div class="flex-row">
+            <select id="templateSelect" class="flex-2" aria-label="Scegli un modello"></select>
+            <button type="button" class="flex-1 btn-secondary" onclick="applySelectedTemplate()">Applica modello</button>
+        </div>
+        <div class="flex-row">
+            <button type="button" class="flex-1 btn-secondary" onclick="saveCurrentAsTemplate()">Salva come modello personale</button>
+            <button type="button" class="flex-1 delete-btn" onclick="deleteSelectedTemplate()">Elimina modello personale</button>
+        </div>
+        <label for="noteKind">Tipo di appunto</label>
+        <select id="noteKind" onchange="setNoteKind(this.value)">
+            <option value="text">Testo</option>
+            <option value="checklist">Lista da spuntare</option>
+        </select>
         <label class="sr-only" for="noteText">Testo dell'appunto</label>
         <textarea id="noteText" placeholder="Scrivi il tuo appunto qui..."></textarea>
+        <div id="checklistEditor" hidden>
+            <p class="section-hint">Aggiungi le voci della lista. Il testo sopra è facoltativo.</p>
+            <div id="checklistRows"></div>
+            <button type="button" class="btn-secondary" onclick="addChecklistRow()">+ Aggiungi voce</button>
+        </div>
+        <p id="draftStatus" class="draft-status" role="status" aria-live="polite"></p>
         <div class="dictation-controls">
             <button id="dictationBtn" type="button" aria-pressed="false" onclick="toggleDictation()">🎙️ Detta</button>
+            <button id="undoSpeechBtn" type="button" class="btn-secondary" onclick="undoLastSpeech()" disabled>Annulla ultima frase</button>
+            <label for="speechLanguage">Lingua</label><select id="speechLanguage" aria-label="Lingua dettatura"><option value="it-IT">Italiano</option><option value="en-US">English</option><option value="fr-FR">Français</option><option value="de-DE">Deutsch</option><option value="es-ES">Español</option></select>
             <span id="dictationStatus" class="dictation-status" role="status" aria-live="polite"></span>
         </div>
+        <label id="speechLocalRow" hidden><input id="speechLocal" type="checkbox"> Usa riconoscimento sul dispositivo, se disponibile</label>
         <p id="dictationPreview" class="dictation-preview" aria-live="off"></p>
         <p class="section-hint">Puoi anche dettare il testo. Il browser potrebbe usare un servizio online per riconoscere la voce.</p>
 
@@ -613,6 +665,7 @@
         </div>
         <div class="tag-list" id="tagFilterList" style="margin-top: 10px;"></div>
         <button id="archiveToggle" class="btn-secondary" style="margin-top:10px;" onclick="toggleArchiveView()">Vedi archivio</button>
+        <button id="trashToggle" class="btn-secondary" onclick="toggleTrashView()">Vedi cestino</button>
     </div>
 
     <!-- Lista Appunti -->
@@ -630,7 +683,7 @@
         let categories = JSON.parse(localStorage.getItem('myCategories')) || ["Lavoro", "Personale", "Studio", "Progetti", "Idee"];
         let activeTag = null;
         let editingId = null;
-        let viewMode = 'active'; // 'active' | 'archived'
+        let viewMode = 'active'; // 'active' | 'archived' | 'trash'
         let reminderNoteId = null;
 
         // --- Stato cloud (JSONBin) ---
@@ -643,6 +696,7 @@
         let cloudRevision = 0;
         let cloudSaveInFlight = null;
         let lastCloudSaveLabel = localStorage.getItem('lastCloudSave') || '';
+        let cloudBase = null;
         let deferredInstallPrompt = null;
         let installedThisSession = false;
         let dictationRecognition = null;
@@ -653,6 +707,182 @@
         let dictationBaseText = '';
         let confirmedSpeech = '';
         let draftSpeech = '';
+        let speechUndoStack = [];
+        let draftSaveTimer = null;
+        let pendingWorker = null;
+        let updateReloading = false;
+        const BUILTIN_TEMPLATES = {
+            meeting: { name: 'Riunione', kind: 'text', text: 'Riunione\nData:\nPartecipanti:\nArgomenti:\nDecisioni:\nProssimi passi:', category: 'Lavoro', tags: ['riunione'], checklist: [] },
+            shopping: { name: 'Spesa', kind: 'checklist', text: 'Lista della spesa', category: 'Personale', tags: ['spesa'], checklist: [] },
+            idea: { name: 'Idea', kind: 'text', text: 'Titolo:\nDescrizione:\nProssimo passo:', category: 'Idee', tags: ['idea'], checklist: [] }
+        };
+
+        function newChecklistId() {
+            return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        }
+        function readChecklistRows() {
+            return Array.from(document.querySelectorAll('#checklistRows .checklist-editor-row')).map(row => ({
+                id: row.dataset.itemId,
+                text: row.querySelector('input[type="text"]').value.trim(),
+                done: row.querySelector('input[type="checkbox"]').checked
+            })).filter(item => item.text);
+        }
+        function addChecklistRow(item = {}) {
+            const row = document.createElement('div');
+            row.className = 'checklist-editor-row';
+            row.dataset.itemId = item.id || newChecklistId();
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = item.done === true;
+            checkbox.setAttribute('aria-label', 'Voce completata');
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.placeholder = 'Voce della lista';
+            input.value = item.text || '';
+            input.setAttribute('aria-label', 'Testo della voce');
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'delete-btn';
+            remove.textContent = 'Rimuovi';
+            remove.setAttribute('aria-label', 'Rimuovi voce della lista');
+            remove.onclick = () => { row.remove(); scheduleDraftSave(); };
+            row.append(checkbox, input, remove);
+            document.getElementById('checklistRows').appendChild(row);
+            scheduleDraftSave();
+            return input;
+        }
+        function setNoteKind(kind) {
+            const isChecklist = kind === 'checklist';
+            document.getElementById('noteKind').value = isChecklist ? 'checklist' : 'text';
+            document.getElementById('checklistEditor').hidden = !isChecklist;
+            if (isChecklist && !document.getElementById('checklistRows').children.length) addChecklistRow();
+            scheduleDraftSave();
+        }
+        function renderTemplateOptions() {
+            const select = document.getElementById('templateSelect');
+            const previous = select.value;
+            select.innerHTML = '<option value="">-- Scegli un modello --</option>';
+            Object.entries(BUILTIN_TEMPLATES).forEach(([key, template]) => {
+                const option = document.createElement('option');
+                option.value = `built:${key}`;
+                option.textContent = template.name;
+                select.appendChild(option);
+            });
+            notes.filter(n => n.isTemplate && !n.deletedAt).sort((a, b) => a.templateName.localeCompare(b.templateName, 'it')).forEach(template => {
+                const option = document.createElement('option');
+                option.value = `personal:${template.id}`;
+                option.textContent = `Personale: ${template.templateName}`;
+                select.appendChild(option);
+            });
+            if (Array.from(select.options).some(option => option.value === previous)) select.value = previous;
+        }
+        function currentTemplate() {
+            const selected = document.getElementById('templateSelect').value;
+            if (selected.startsWith('built:')) return BUILTIN_TEMPLATES[selected.slice(6)];
+            if (selected.startsWith('personal:')) return notes.find(n => n.isTemplate && !n.deletedAt && n.id === Number(selected.slice(9)));
+            return null;
+        }
+        function applySelectedTemplate() {
+            if (dictationActive || dictationStopping) { showMessage('Termina la dettatura prima di applicare un modello.'); return; }
+            const template = currentTemplate();
+            if (!template) { showMessage('Scegli un modello.'); return; }
+            const hasDraft = document.getElementById('noteText').value.trim() ||
+                (document.getElementById('noteKind').value === 'checklist' && readChecklistRows().length) ||
+                document.getElementById('noteTags').value.trim();
+            if (hasDraft && !confirm('Sostituire la bozza corrente con il modello scelto?')) return;
+            cancelEdit();
+            document.getElementById('noteText').value = template.text;
+            document.getElementById('noteCategory').value = categories.includes(template.category) ? template.category : '';
+            document.getElementById('noteTags').value = (template.tags || []).join(', ');
+            document.getElementById('checklistRows').innerHTML = '';
+            setNoteKind(template.kind);
+            if (template.kind === 'checklist' && (template.checklist || []).length) {
+                document.getElementById('checklistRows').innerHTML = '';
+                template.checklist.forEach(item => addChecklistRow({ text: item.text, done: false }));
+            }
+            saveDraftNow();
+            document.getElementById('noteText').focus();
+        }
+        function saveCurrentAsTemplate() {
+            if (dictationActive || dictationStopping) { showMessage('Termina la dettatura prima di salvare un modello.'); return; }
+            const text = document.getElementById('noteText').value.trim();
+            const checklist = document.getElementById('noteKind').value === 'checklist' ? readChecklistRows() : [];
+            if (!text && !checklist.length) { showMessage('Scrivi un testo o almeno una voce per creare il modello.'); return; }
+            const name = prompt('Nome del modello personale:')?.trim();
+            if (!name) return;
+            if (notes.some(n => n.isTemplate && !n.deletedAt && n.templateName.toLocaleLowerCase('it') === name.toLocaleLowerCase('it'))) {
+                showMessage('Esiste già un modello personale con questo nome.'); return;
+            }
+            const id = nextNoteId();
+            notes.push({ id, isTemplate: true, templateName: name, kind: document.getElementById('noteKind').value,
+                text, checklist: checklist.map(item => ({...item, done: false})),
+                category: document.getElementById('noteCategory').value,
+                tags: document.getElementById('noteTags').value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean),
+                pinned: false, archived: false, date: currentTimestampLabel(), timestamp: Date.now(), updatedAt: new Date().toISOString() });
+            saveNotes();
+            document.getElementById('templateSelect').value = `personal:${id}`;
+            showMessage('Modello personale salvato.');
+        }
+        function deleteSelectedTemplate() {
+            const template = currentTemplate();
+            if (!template || !template.isTemplate) { showMessage('Scegli un modello personale da eliminare.'); return; }
+            if (!confirm(`Eliminare il modello "${template.templateName}"?`)) return;
+            template.deletedAt = new Date().toISOString();
+            touchNote(template);
+            saveNotes();
+            document.getElementById('templateSelect').value = '';
+            showMessage('Modello eliminato.');
+        }
+
+        function saveDraftNow() {
+            clearTimeout(draftSaveTimer);
+            const draft = {
+                text: document.getElementById('noteText').value,
+                category: document.getElementById('noteCategory').value,
+                tags: document.getElementById('noteTags').value,
+                editingId,
+                kind: document.getElementById('noteKind').value,
+                checklist: document.getElementById('noteKind').value === 'checklist' ? readChecklistRows() : []
+            };
+            if (draft.text || draft.tags || draft.category || draft.editingId !== null || draft.checklist.length) {
+                localStorage.setItem('appuntiDraft', JSON.stringify(draft));
+                document.getElementById('draftStatus').textContent = 'Bozza salvata su questo dispositivo.';
+            } else {
+                localStorage.removeItem('appuntiDraft');
+                document.getElementById('draftStatus').textContent = '';
+            }
+        }
+        function scheduleDraftSave() {
+            document.getElementById('draftStatus').textContent = 'Salvataggio bozza…';
+            clearTimeout(draftSaveTimer);
+            draftSaveTimer = setTimeout(saveDraftNow, 500);
+        }
+        function restoreDraft() {
+            try {
+                const draft = JSON.parse(localStorage.getItem('appuntiDraft') || 'null');
+                if (!draft || typeof draft.text !== 'string' || typeof draft.tags !== 'string') return;
+                document.getElementById('noteText').value = draft.text;
+                document.getElementById('noteTags').value = draft.tags;
+                if (categories.includes(draft.category)) document.getElementById('noteCategory').value = draft.category;
+                document.getElementById('checklistRows').innerHTML = '';
+                setNoteKind(draft.kind);
+                if (draft.kind === 'checklist' && Array.isArray(draft.checklist) && draft.checklist.length) {
+                    document.getElementById('checklistRows').innerHTML = '';
+                    draft.checklist.filter(item => item && typeof item.text === 'string').forEach(addChecklistRow);
+                }
+                if (draft.editingId !== null && notes.some(n => n.id === draft.editingId && !n.deletedAt)) {
+                    editingId = draft.editingId;
+                    document.getElementById('saveNoteBtn').innerText = 'Aggiorna appunto';
+                    document.getElementById('cancelEditBtn').style.display = 'block';
+                }
+                document.getElementById('draftStatus').textContent = 'Bozza recuperata da questo dispositivo.';
+            } catch (err) { localStorage.removeItem('appuntiDraft'); }
+        }
+        function clearDraft() {
+            clearTimeout(draftSaveTimer);
+            localStorage.removeItem('appuntiDraft');
+            document.getElementById('draftStatus').textContent = '';
+        }
 
         function setDictationStatus(message) {
             document.getElementById('dictationStatus').textContent = message;
@@ -704,6 +934,15 @@
             const separator = dictationBaseText && transcript && !/\s$/.test(dictationBaseText) ? ' ' : '';
             field.value = dictationBaseText + separator + transcript;
             field.selectionStart = field.selectionEnd = field.value.length;
+            scheduleDraftSave();
+        }
+        function undoLastSpeech() {
+            if (dictationActive || dictationStopping || !speechUndoStack.length) return;
+            confirmedSpeech = speechUndoStack.pop();
+            draftSpeech = '';
+            renderDictationText();
+            document.getElementById('undoSpeechBtn').disabled = !speechUndoStack.length;
+            setDictationStatus('Ultima frase annullata.');
         }
         function cancelDictation() {
             if (!dictationRecognition || (!dictationActive && !dictationStopping)) return;
@@ -719,7 +958,10 @@
                 return;
             }
             dictationRecognition = new Recognition();
-            dictationRecognition.lang = 'it-IT';
+            const localSupported = 'processLocally' in dictationRecognition && typeof Recognition.available === 'function';
+            document.getElementById('speechLocalRow').hidden = !localSupported;
+            document.getElementById('speechLocal').checked = localSupported && localStorage.getItem('speechLocal') === 'true';
+            dictationRecognition.lang = document.getElementById('speechLanguage').value;
             dictationRecognition.continuous = true;
             dictationRecognition.interimResults = true;
             dictationRecognition.maxAlternatives = 1;
@@ -732,7 +974,11 @@
             dictationRecognition.onresult = event => {
                 if (discardDictationResults) return;
                 const finals = mergeSpeechResults(event.results, true);
-                confirmedSpeech = mergeSpeechSegments(confirmedSpeech, finals);
+                const merged = mergeSpeechSegments(confirmedSpeech, finals);
+                if (merged !== confirmedSpeech) {
+                    speechUndoStack.push(confirmedSpeech);
+                    confirmedSpeech = merged;
+                }
                 draftSpeech = mergeSpeechResults(event.results, false);
                 renderDictationText();
                 document.getElementById('dictationPreview').textContent = draftSpeech
@@ -746,22 +992,31 @@
                     'service-not-allowed': 'Il riconoscimento vocale è bloccato dal browser.',
                     'audio-capture': 'Microfono non disponibile. Controlla il dispositivo.',
                     'no-speech': 'Non è stata rilevata voce. Riprova.',
+                    'language-not-supported': 'Lingua non disponibile per il riconoscimento sul dispositivo.',
                     network: 'Il riconoscimento vocale richiede una connessione in questo browser.'
                 };
                 setDictationStatus(messages[event.error] || 'La dettatura si è interrotta. Riprova.');
             };
             dictationRecognition.onend = () => {
+                if (!discardDictationResults && draftSpeech) {
+                    const merged = mergeSpeechSegments(confirmedSpeech, draftSpeech);
+                    if (merged !== confirmedSpeech) speechUndoStack.push(confirmedSpeech);
+                    confirmedSpeech = merged;
+                    draftSpeech = '';
+                    renderDictationText();
+                }
                 dictationActive = false;
                 dictationStopping = false;
                 document.getElementById('noteText').readOnly = false;
                 document.getElementById('dictationPreview').textContent = '';
                 if (!dictationError && !discardDictationResults) setDictationStatus('Dettatura terminata.');
                 discardDictationResults = false;
+                document.getElementById('undoSpeechBtn').disabled = !speechUndoStack.length;
                 updateDictationButton();
             };
             updateDictationButton();
         }
-        function toggleDictation() {
+        async function toggleDictation() {
             if (!dictationRecognition) return;
             if (dictationActive) {
                 dictationStopping = true;
@@ -771,11 +1026,40 @@
                 return;
             }
             if (dictationStopping) return;
+            const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const localMode = !document.getElementById('speechLocalRow').hidden &&
+                document.getElementById('speechLocal').checked;
+            if (localMode) {
+                dictationStopping = true;
+                updateDictationButton();
+                setDictationStatus('Controllo lingua sul dispositivo…');
+                try {
+                    const lang = document.getElementById('speechLanguage').value;
+                    let availability = await Recognition.available({ langs: [lang], processLocally: true });
+                    if (availability === 'downloadable') {
+                        setDictationStatus('Scaricamento della lingua sul dispositivo…');
+                        if (typeof Recognition.install !== 'function' ||
+                            !await Recognition.install({ langs: [lang] })) throw new Error('language');
+                        availability = await Recognition.available({ langs: [lang], processLocally: true });
+                    }
+                    if (availability !== 'available') throw new Error('language');
+                } catch (err) {
+                    dictationStopping = false;
+                    updateDictationButton();
+                    setDictationStatus('Riconoscimento sul dispositivo non disponibile per questa lingua. Disattiva l’opzione per usare il servizio del browser.');
+                    return;
+                }
+                dictationStopping = false;
+            }
             dictationError = false;
             discardDictationResults = false;
             dictationBaseText = document.getElementById('noteText').value;
             confirmedSpeech = '';
             draftSpeech = '';
+            speechUndoStack = [];
+            document.getElementById('undoSpeechBtn').disabled = true;
+            dictationRecognition.lang = document.getElementById('speechLanguage').value;
+            if ('processLocally' in dictationRecognition) dictationRecognition.processLocally = localMode;
             document.getElementById('dictationPreview').textContent = '';
             try {
                 document.getElementById('noteText').readOnly = true;
@@ -842,10 +1126,36 @@
             updateInstallButton();
         }
 
+        function showAppUpdate(worker) {
+            if (!worker || !navigator.serviceWorker.controller) return;
+            pendingWorker = worker;
+            document.getElementById('updateBanner').hidden = false;
+        }
+        function applyAppUpdate() {
+            if (!pendingWorker) return;
+            saveDraftNow();
+            pendingWorker.postMessage({ type: 'SKIP_WAITING' });
+        }
         if ('serviceWorker' in navigator &&
             (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (updateReloading || !pendingWorker) return;
+                updateReloading = true;
+                location.reload();
+            });
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => {
+                navigator.serviceWorker.register('./sw.js').then(registration => {
+                    showAppUpdate(registration.waiting);
+                    registration.addEventListener('updatefound', () => {
+                        const worker = registration.installing;
+                        worker?.addEventListener('statechange', () => {
+                            if (worker.state === 'installed') showAppUpdate(worker);
+                        });
+                    });
+                    document.addEventListener('visibilitychange', () => {
+                        if (!document.hidden) registration.update().catch(() => {});
+                    });
+                }).catch(err => {
                     console.warn('Service worker non registrato:', err);
                 });
             });
@@ -947,7 +1257,27 @@
             localStorage.setItem('myNotes', JSON.stringify(notes));
             renderNotes();
             renderTags();
+            renderTemplateOptions();
             scheduleCloudSave();
+        }
+        function touchNote(note) { note.updatedAt = new Date().toISOString(); }
+        function nextNoteId() {
+            return Math.max(Date.now(), ...notes.map(note => note.id + 1), 1);
+        }
+        function purgeExpiredTrash() {
+            const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+            let changed = false;
+            notes.forEach(note => {
+                if (note.deletedAt && !note.purgedAt && Date.parse(note.deletedAt) < cutoff) {
+                    note.text = '';
+                    note.tags = [];
+                    note.checklist = [];
+                    note.purgedAt = new Date().toISOString();
+                    touchNote(note);
+                    changed = true;
+                }
+            });
+            if (changed) saveNotes();
         }
 
         function saveCategoriesState() {
@@ -1054,7 +1384,7 @@
             if (newName === oldName) return;
             if (categories.includes(newName)) { showMessage("Esiste già una categoria con questo nome."); return; }
             categories[index] = newName;
-            notes.forEach(n => { if (n.category === oldName) n.category = newName; });
+            notes.forEach(n => { if (n.category === oldName) { n.category = newName; touchNote(n); } });
             saveCategoriesState();
             saveNotes();
             renderCategoryManageList();
@@ -1064,7 +1394,7 @@
             const name = categories[index];
             if (!confirm(`Eliminare la categoria "${name}"? Gli appunti collegati resteranno senza categoria.`)) return;
             categories.splice(index, 1);
-            notes.forEach(n => { if (n.category === name) n.category = ''; });
+            notes.forEach(n => { if (n.category === name) { n.category = ''; touchNote(n); } });
             saveCategoriesState();
             saveNotes();
             renderCategoryManageList();
@@ -1164,6 +1494,7 @@
                 if (data.tags && data.tags.length > 0) {
                     document.getElementById('noteTags').value = data.tags.join(', ');
                 }
+                scheduleDraftSave();
 
                 showMessage("Appunto organizzato con successo dall'AI!");
             } catch (err) {
@@ -1184,10 +1515,16 @@
                 return;
             }
             const text = document.getElementById('noteText').value.trim();
+            const kind = document.getElementById('noteKind').value === 'checklist' ? 'checklist' : 'text';
+            const checklist = kind === 'checklist' ? readChecklistRows() : [];
             const category = document.getElementById('noteCategory').value;
             const tagsInput = document.getElementById('noteTags').value;
 
-            if (!text) {
+            if (kind === 'checklist' && !checklist.length) {
+                showMessage('Aggiungi almeno una voce alla lista.');
+                return;
+            }
+            if (kind === 'text' && !text) {
                 showMessage("L'appunto è vuoto. Inserisci del testo!");
                 return;
             }
@@ -1201,10 +1538,13 @@
                 const note = notes.find(n => n.id === editingId);
                 if (note) {
                     note.text = text;
+                    note.kind = kind;
+                    note.checklist = checklist;
                     note.category = category;
                     note.tags = tags;
                     note.edited = true;
                     note.editedDate = currentTimestampLabel();
+                    touchNote(note);
                 }
                 cancelEdit();
                 saveNotes();
@@ -1214,13 +1554,16 @@
 
             // Nuovo appunto
             notes.unshift({
-                id: Date.now(),
+                id: nextNoteId(),
                 text: text,
+                kind,
+                checklist,
                 category: category,
                 tags: tags,
                 pinned: false,
                 date: currentTimestampLabel(),
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                updatedAt: new Date().toISOString()
             });
 
             clearForm();
@@ -1232,6 +1575,12 @@
             document.getElementById('noteText').value = '';
             document.getElementById('noteCategory').value = '';
             document.getElementById('noteTags').value = '';
+            document.getElementById('checklistRows').innerHTML = '';
+            document.getElementById('noteKind').value = 'text';
+            document.getElementById('checklistEditor').hidden = true;
+            clearDraft();
+            document.getElementById('undoSpeechBtn').disabled = true;
+            speechUndoStack = [];
         }
 
         function editNote(id) {
@@ -1241,12 +1590,22 @@
             }
             const note = notes.find(n => n.id === id);
             if (!note) return;
+            const currentText = document.getElementById('noteText').value.trim();
+            if ((currentText || (document.getElementById('noteKind').value === 'checklist' && readChecklistRows().length)) && currentText !== note.text &&
+                !confirm('La bozza corrente non è salvata. Vuoi sostituirla con questo appunto?')) return;
             editingId = id;
             document.getElementById('noteText').value = note.text;
             document.getElementById('noteCategory').value = categories.includes(note.category) ? note.category : '';
             document.getElementById('noteTags').value = (note.tags || []).join(', ');
+            document.getElementById('checklistRows').innerHTML = '';
+            setNoteKind(note.kind);
+            if (note.kind === 'checklist' && (note.checklist || []).length) {
+                document.getElementById('checklistRows').innerHTML = '';
+                note.checklist.forEach(addChecklistRow);
+            }
             document.getElementById('saveNoteBtn').innerText = 'Aggiorna appunto';
             document.getElementById('cancelEditBtn').style.display = 'block';
+            saveDraftNow();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
@@ -1258,9 +1617,31 @@
         }
 
         function deleteNote(id) {
-            if (!confirm("Eliminare definitivamente questo appunto?")) return;
+            if (!confirm("Spostare questo appunto nel cestino? Potrai ripristinarlo per 30 giorni.")) return;
             if (editingId === id) cancelEdit();
-            notes = notes.filter(n => n.id !== id);
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            note.deletedAt = new Date().toISOString();
+            note.pinned = false;
+            touchNote(note);
+            saveNotes();
+        }
+        function restoreNote(id) {
+            const note = notes.find(n => n.id === id && n.deletedAt && !n.purgedAt);
+            if (!note) return;
+            delete note.deletedAt;
+            touchNote(note);
+            saveNotes();
+            showMessage('Appunto ripristinato.');
+        }
+        function purgeNote(id) {
+            const note = notes.find(n => n.id === id && n.deletedAt);
+            if (!note || !confirm('Eliminare definitivamente il contenuto di questo appunto? Non potrà essere ripristinato.')) return;
+            note.text = '';
+            note.tags = [];
+            note.checklist = [];
+            note.purgedAt = new Date().toISOString();
+            touchNote(note);
             saveNotes();
         }
 
@@ -1268,6 +1649,7 @@
             const note = notes.find(n => n.id === id);
             if (note) {
                 note.pinned = !note.pinned;
+                touchNote(note);
                 saveNotes();
             }
         }
@@ -1277,6 +1659,7 @@
             if (!note) return;
             note.archived = true;
             note.pinned = false; // un appunto archiviato non resta fissato in alto
+            touchNote(note);
             if (editingId === id) cancelEdit();
             saveNotes();
             showMessage("Appunto archiviato.");
@@ -1286,12 +1669,17 @@
             const note = notes.find(n => n.id === id);
             if (!note) return;
             note.archived = false;
+            touchNote(note);
             saveNotes();
             showMessage("Appunto ripristinato.");
         }
 
         function toggleArchiveView() {
             viewMode = viewMode === 'active' ? 'archived' : 'active';
+            renderNotes();
+        }
+        function toggleTrashView() {
+            viewMode = viewMode === 'trash' ? 'active' : 'trash';
             renderNotes();
         }
 
@@ -1303,7 +1691,7 @@
 
         function renderTags() {
             const allTags = new Set();
-            notes.forEach(n => {
+            notes.filter(n => !n.deletedAt && !n.isTemplate).forEach(n => {
                 if (n.tags) {
                     n.tags.forEach(t => allTags.add(t));
                 }
@@ -1353,6 +1741,14 @@
             button.addEventListener('click', action);
             return button;
         }
+        function toggleChecklistItem(noteId, itemId, done) {
+            const note = notes.find(n => n.id === noteId && !n.deletedAt && !n.isTemplate);
+            const item = note?.checklist?.find(entry => entry.id === itemId);
+            if (!item) return;
+            item.done = done;
+            touchNote(note);
+            saveNotes();
+        }
 
         function renderNotes() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -1362,18 +1758,25 @@
             container.innerHTML = '';
 
             // Aggiorna il pulsante archivio con il conteggio
-            const archivedCount = notes.filter(n => n.archived).length;
+            const archivedCount = notes.filter(n => !n.isTemplate && n.archived && !n.deletedAt).length;
+            const trashCount = notes.filter(n => !n.isTemplate && n.deletedAt && !n.purgedAt).length;
             const toggleBtn = document.getElementById('archiveToggle');
             if (viewMode === 'archived') {
                 toggleBtn.innerText = '← Torna agli appunti attivi';
             } else {
                 toggleBtn.innerText = `Vedi archivio (${archivedCount})`;
             }
+            document.getElementById('trashToggle').innerText = viewMode === 'trash'
+                ? '← Torna agli appunti attivi' : `Vedi cestino (${trashCount})`;
 
             let filteredNotes = notes.filter(n => {
-                const inCurrentView = viewMode === 'archived' ? n.archived : !n.archived;
+                if (n.isTemplate) return false;
+                const inCurrentView = viewMode === 'trash' ? n.deletedAt && !n.purgedAt
+                    : !n.deletedAt && (viewMode === 'archived' ? n.archived : !n.archived);
                 if (!inCurrentView) return false;
-                const matchesText = n.text.toLowerCase().includes(query) || (n.tags && n.tags.some(t => t.includes(query)));
+                const matchesText = n.text.toLowerCase().includes(query) ||
+                    (n.checklist || []).some(item => item.text.toLowerCase().includes(query)) ||
+                    (n.tags && n.tags.some(t => t.includes(query)));
                 const matchesTag = activeTag ? (n.tags && n.tags.includes(activeTag)) : true;
                 const matchesCat = catFilter ? n.category === catFilter : true;
 
@@ -1389,11 +1792,14 @@
             if (filteredNotes.length === 0) {
                 const empty = document.createElement('div');
                 empty.className = 'empty-state';
-                if (viewMode === 'archived') {
+                if (viewMode === 'trash') {
+                    empty.innerText = trashCount === 0 ? 'Il cestino è vuoto.'
+                        : 'Nessun appunto nel cestino corrisponde alla ricerca o ai filtri.';
+                } else if (viewMode === 'archived') {
                     empty.innerText = archivedCount === 0
                         ? "L'archivio è vuoto. Archivia un appunto per conservarlo senza tenerlo tra gli attivi."
                         : "Nessun appunto archiviato corrisponde alla ricerca o ai filtri.";
-                } else if (notes.filter(n => !n.archived).length === 0) {
+                } else if (notes.filter(n => !n.isTemplate && !n.archived && !n.deletedAt).length === 0) {
                     empty.innerText = "Non hai appunti attivi. Scrivine uno qui sopra per iniziare.";
                 } else {
                     empty.innerText = "Nessun appunto corrisponde alla ricerca o ai filtri.";
@@ -1410,7 +1816,8 @@
                 const tagsHtml = (n.tags || []).map(t => `<span>#${escapeHtml(t)}</span>`).join('');
                 const highlightedContent = highlightText(n.text, query);
                 const editedFlag = n.edited ? `<span class="edited-flag">· modificato</span>` : '';
-                const reminderFlag = n.reminderAt ? `<span class="reminder-flag" title="Verifica che l'evento sia stato aggiunto al calendario">📅 Verifica: ${formatReminderShort(n.reminderAt)}</span>` : '';
+                const reminderFlag = viewMode !== 'trash' && n.reminderAt ? `<span class="reminder-flag" title="Verifica che l'evento sia stato aggiunto al calendario">📅 Verifica: ${formatReminderShort(n.reminderAt)}</span>` : '';
+                const trashFlag = viewMode === 'trash' ? `<span class="edited-flag">· nel cestino dal ${escapeHtml(new Date(n.deletedAt).toLocaleDateString('it-IT'))}</span>` : '';
 
                 div.innerHTML = `
                     <div class="note-header">
@@ -1418,16 +1825,41 @@
                             <small style="color: #999;">${escapeHtml(n.date)}</small>
                             ${editedFlag}
                             ${reminderFlag}
+                            ${trashFlag}
                         </div>
                         <div class="note-meta note-controls">${categoryBadge}</div>
                     </div>
                     <div class="note-content">${highlightedContent}</div>
+                    <div class="checklist-progress"></div>
+                    <ul class="checklist-items"></ul>
                     <div class="note-tags">${tagsHtml}</div>
                     <div class="note-actions"></div>
                 `;
                 const controls = div.querySelector('.note-controls');
                 const actions = div.querySelector('.note-actions');
-                if (viewMode === 'archived') {
+                if (n.kind === 'checklist') {
+                    const items = n.checklist || [];
+                    div.querySelector('.checklist-progress').textContent = `${items.filter(item => item.done).length} di ${items.length} completate`;
+                    const list = div.querySelector('.checklist-items');
+                    items.forEach(item => {
+                        const li = document.createElement('li');
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.checked = item.done;
+                        checkbox.disabled = viewMode !== 'active';
+                        checkbox.setAttribute('aria-label', `Completa: ${item.text}`);
+                        checkbox.addEventListener('change', () => toggleChecklistItem(n.id, item.id, checkbox.checked));
+                        const label = document.createElement('span');
+                        label.textContent = item.text;
+                        if (item.done) label.className = 'done';
+                        li.append(checkbox, label);
+                        list.appendChild(li);
+                    });
+                }
+                if (viewMode === 'trash') {
+                    actions.appendChild(noteButton('Ripristina', 'btn-green', '', () => restoreNote(n.id)));
+                    actions.appendChild(noteButton('Elimina definitivamente', 'delete-btn', '', () => purgeNote(n.id)));
+                } else if (viewMode === 'archived') {
                     actions.appendChild(noteButton('Ripristina', 'btn-green', '', () => unarchiveNote(n.id)));
                     actions.appendChild(noteButton('Elimina', 'delete-btn', '', () => deleteNote(n.id)));
                 } else {
@@ -1447,7 +1879,7 @@
         function exportData() {
             const data = {
                 app: "I Miei Appunti",
-                version: 1,
+                version: 4,
                 exportedAt: new Date().toISOString(),
                 notes: notes,
                 categories: categories
@@ -1476,23 +1908,45 @@
                     typeof n.text !== 'string' || typeof n.category !== 'string' ||
                     !Array.isArray(n.tags) || n.tags.some(t => typeof t !== 'string') ||
                     typeof n.date !== 'string' || !Number.isFinite(n.timestamp) ||
+                    (n.updatedAt !== undefined && !Number.isFinite(Date.parse(n.updatedAt))) ||
+                    (n.deletedAt !== undefined && !Number.isFinite(Date.parse(n.deletedAt))) ||
+                    (n.purgedAt !== undefined && !Number.isFinite(Date.parse(n.purgedAt))) ||
+                    (n.kind !== undefined && n.kind !== 'text' && n.kind !== 'checklist') ||
+                    (n.checklist !== undefined && !Array.isArray(n.checklist)) ||
+                    (n.isTemplate === true && (typeof n.templateName !== 'string' || !n.templateName.trim())) ||
+                    (n.samsungImportName !== undefined && typeof n.samsungImportName !== 'string') ||
                     (n.reminderAt !== undefined &&
                      (typeof n.reminderAt !== 'string' || !Number.isFinite(Date.parse(n.reminderAt))))) {
                     throw new Error('Appunto non valido');
                 }
                 seenIds.add(n.id);
+                const checklist = (n.checklist || []).map(item => {
+                    if (!item || typeof item.id !== 'string' || !item.id ||
+                        typeof item.text !== 'string' || typeof item.done !== 'boolean') {
+                        throw new Error('Voce della lista non valida');
+                    }
+                    return { id: item.id, text: item.text, done: item.done };
+                });
+                if (new Set(checklist.map(item => item.id)).size !== checklist.length) throw new Error('Voci duplicate');
                 return {
                     id: n.id,
                     text: n.text,
                     category: n.category,
                     tags: n.tags,
+                    kind: n.kind === 'checklist' ? 'checklist' : 'text',
+                    checklist,
+                    ...(typeof n.samsungImportName === 'string' ? { samsungImportName: n.samsungImportName } : {}),
+                    ...(n.isTemplate === true ? { isTemplate: true, templateName: n.templateName.trim() } : {}),
                     pinned: n.pinned === true,
                     archived: n.archived === true,
                     date: n.date,
                     timestamp: n.timestamp,
                     ...(n.edited === true ? { edited: true } : {}),
                     ...(typeof n.editedDate === 'string' ? { editedDate: n.editedDate } : {}),
-                    ...(n.reminderAt ? { reminderAt: n.reminderAt } : {})
+                    ...(n.reminderAt ? { reminderAt: n.reminderAt } : {}),
+                    updatedAt: n.updatedAt || new Date(n.timestamp).toISOString(),
+                    ...(n.deletedAt ? { deletedAt: n.deletedAt } : {}),
+                    ...(n.purgedAt ? { purgedAt: n.purgedAt } : {})
                 };
             });
             return { notes: importedNotes, categories: data.categories || null };
@@ -1584,6 +2038,8 @@
                     id = data.metadata?.id;
                     if (!id) throw new Error('Bin ID mancante nella risposta');
                     document.getElementById('cloudBinInput').value = id;
+                    cloudBase = { notes: structuredClone(notes), categories: [...categories] };
+                    localStorage.setItem(`appuntiCloudBase:${id}`, JSON.stringify(cloudBase));
                     cloudDirty = snapshot !== JSON.stringify({ notes, categories });
                     lastCloudSaveLabel = currentTimestampLabel();
                     localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
@@ -1593,6 +2049,7 @@
                     cloudDirty = false;
                 }
                 binId = id;
+                if (nextBin) cloudBase = readCloudBase(id);
                 cloudKey = nextKey;
                 cloudAuthType = nextType;
                 localStorage.setItem('jsonbinBinId', binId);
@@ -1617,6 +2074,7 @@
             cloudDirty = false;
             binId = '';
             cloudKey = '';
+            cloudBase = null;
             localStorage.removeItem('jsonbinBinId');
             localStorage.removeItem('jsonbinKey');
             localStorage.removeItem('jsonbinAuthType');
@@ -1644,106 +2102,135 @@
             cloudSaveTimer = setTimeout(() => saveToCloud(false), 2000);
         }
 
+        function snapshot(data) {
+            const checked = validateImportedData({ notes: data.notes, categories: data.categories || [] });
+            checked.notes.sort((a, b) => a.id - b.id);
+            return { notes: checked.notes, categories: checked.categories || [] };
+        }
+        function snapshotKey(data) {
+            return JSON.stringify(data, (key, value) => value && typeof value === 'object' && !Array.isArray(value)
+                ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value);
+        }
+        function readCloudBase(id) {
+            try { return snapshot(JSON.parse(localStorage.getItem(`appuntiCloudBase:${id}`))); }
+            catch (err) { return null; }
+        }
+        function setCloudBase(data) {
+            cloudBase = snapshot(data);
+            localStorage.setItem(`appuntiCloudBase:${binId}`, JSON.stringify(cloudBase));
+        }
+        function mergeCloudSnapshots(base, local, remote) {
+            const baseMap = new Map((base?.notes || []).map(n => [n.id, n]));
+            const localMap = new Map(local.notes.map(n => [n.id, n]));
+            const remoteMap = new Map(remote.notes.map(n => [n.id, n]));
+            const ids = new Set([...baseMap.keys(), ...localMap.keys(), ...remoteMap.keys()]);
+            const merged = [];
+            let conflicts = 0;
+            let nextId = Math.max(Date.now(), ...ids, 0) + 1;
+            const copyConflict = note => {
+                if (!note || (!note.text && !(note.checklist || []).length)) return;
+                const copy = { ...note, id: nextId++, timestamp: Date.now(),
+                    date: currentTimestampLabel(), updatedAt: new Date().toISOString(),
+                    text: note.isTemplate ? note.text : `Copia da conflitto di sincronizzazione\n\n${note.text}`,
+                    ...(note.isTemplate ? { templateName: `${note.templateName} (conflitto)` } : {}) };
+                delete copy.deletedAt;
+                delete copy.purgedAt;
+                merged.push(copy);
+                conflicts++;
+            };
+            for (const id of ids) {
+                const previous = baseMap.get(id);
+                const here = localMap.get(id) || previous;
+                const there = remoteMap.get(id) || previous;
+                if (!here) { if (there) merged.push(there); continue; }
+                if (!there) { merged.push(here); continue; }
+                const localChanged = snapshotKey(here) !== snapshotKey(previous);
+                const remoteChanged = snapshotKey(there) !== snapshotKey(previous);
+                if (!localChanged) merged.push(there);
+                else if (!remoteChanged || snapshotKey(here) === snapshotKey(there)) merged.push(here);
+                else if (there.deletedAt && !here.deletedAt) { merged.push(there); copyConflict(here); }
+                else { merged.push(here); copyConflict(there); }
+            }
+            const baseCategories = base?.categories || [];
+            const localChanged = snapshotKey(local.categories) !== snapshotKey(baseCategories);
+            const remoteChanged = snapshotKey(remote.categories) !== snapshotKey(baseCategories);
+            const mergedCategories = !localChanged ? remote.categories : !remoteChanged ? local.categories
+                : [...new Set([...local.categories, ...remote.categories])];
+            return { data: snapshot({ notes: merged, categories: mergedCategories }), conflicts };
+        }
+        async function readCloud() {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}/latest`,
+                { headers: cloudHeaders() });
+            if (!res.ok) throw { status: res.status };
+            return snapshot((await res.json()).record);
+        }
+        function applyMergedLocally(data) {
+            suppressCloudSave = true;
+            try {
+                notes = data.notes;
+                categories = data.categories;
+                saveCategoriesState();
+                saveNotes();
+            } finally { suppressCloudSave = false; }
+        }
         async function saveToCloud(manual) {
-            if (!cloudConfigured()) { if (manual) openSettings(); return; }
+            if (!cloudConfigured()) { if (manual) openSettings(); return false; }
             clearTimeout(cloudSaveTimer);
-            if (cloudSaveInFlight) {
-                const saved = await cloudSaveInFlight;
-                if (manual && saved && !cloudDirty) showMessage('Salvato sul cloud.');
-                return;
-            }
+            if (cloudSaveInFlight) return cloudSaveInFlight;
             cloudSaveInFlight = (async () => {
-                do {
-                    const revision = cloudRevision;
-                    const currentBin = binId;
-                    const currentKey = cloudKey;
-                    const currentType = cloudAuthType;
-                    const body = JSON.stringify({ notes, categories, updatedAt: new Date().toISOString() });
-                    document.getElementById('cloudStatus').innerText = 'Salvataggio su cloud…';
-                    try {
-                        const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(currentBin)}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json', ...cloudHeaders(currentKey, currentType) },
-                            body
-                        });
-                        if (!res.ok) throw { status: res.status };
-                    } catch (err) {
-                        if (currentBin === binId && currentKey === cloudKey && currentType === cloudAuthType) {
-                            cloudDirty = true;
-                            renderCloudCard();
-                            showMessage(cloudErrorMessage(err && err.status));
-                            cloudSaveTimer = setTimeout(() => saveToCloud(false), 30000);
-                        }
-                        return false;
-                    }
-                    if (currentBin !== binId || currentKey !== cloudKey || currentType !== cloudAuthType) return false;
-                    lastCloudSaveLabel = currentTimestampLabel();
-                    localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
-                    cloudDirty = revision !== cloudRevision;
-                    renderCloudCard();
-                } while (cloudDirty && cloudConfigured());
-                return true;
-            })();
-            try {
-                const saved = await cloudSaveInFlight;
-                if (manual && saved) showMessage('Salvato sul cloud.');
-            } finally {
-                cloudSaveInFlight = null;
-            }
-        }
-
-        async function loadFromCloud(manual) {
-            if (!cloudConfigured()) { openSettings(); return; }
-            try {
-                if (cloudSaveInFlight) await cloudSaveInFlight;
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}/latest`, {
-                    headers: cloudHeaders()
-                });
-                if (!res.ok) throw { status: res.status };
-                const json = await res.json();
-                const record = validateImportedData(json.record);
-                if (manual && !confirm('Sostituire gli appunti locali con quelli del cloud?')) return;
-                clearTimeout(cloudSaveTimer);
-                cloudRevision++;
-                cloudDirty = false;
-                suppressCloudSave = true;
-                notes = record.notes;
-                if (record.categories) categories = record.categories;
+                let conflictCount = 0;
                 try {
-                    saveCategoriesState();
-                    saveNotes();
-                } finally {
-                    suppressCloudSave = false;
-                }
-                renderCloudCard();
-                showMessage('Appunti caricati dal cloud.');
-            } catch (err) {
-                showMessage(cloudErrorMessage(err && err.status));
-            }
-        }
-
-        // Confronto all'avvio: non sovrascrive in silenzio
-        async function checkCloudOnStart(reportErrors = false) {
-            if (!cloudConfigured()) return;
-            try {
-                const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}/latest`, {
-                    headers: cloudHeaders()
-                });
-                if (!res.ok) throw { status: res.status };
-                const json = await res.json();
-                const record = validateImportedData(json.record);
-                const cloudStr = JSON.stringify({ notes: record.notes, categories: record.categories || [] });
-                const localStr = JSON.stringify({ notes, categories });
-                if (cloudStr !== localStr) {
-                    if (confirm('I dati sul cloud sono diversi da quelli su questo dispositivo. Vuoi caricare la versione del cloud?')) {
-                        loadFromCloud(false);
+                    for (let attempt = 0; attempt < 5; attempt++) {
+                        const revision = cloudRevision;
+                        const currentBin = binId;
+                        document.getElementById('cloudStatus').innerText = 'Sincronizzazione cloud…';
+                        const remote = await readCloud();
+                        if (currentBin !== binId || revision !== cloudRevision) continue;
+                        const local = snapshot({ notes, categories });
+                        const merged = mergeCloudSnapshots(cloudBase, local, remote);
+                        conflictCount += merged.conflicts;
+                        if (snapshotKey(merged.data) !== snapshotKey(local)) applyMergedLocally(merged.data);
+                        if (snapshotKey(merged.data) !== snapshotKey(remote)) {
+                            const res = await fetch(`https://api.jsonbin.io/v3/b/${encodeURIComponent(binId)}`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json', ...cloudHeaders() },
+                                body: JSON.stringify({ ...merged.data, updatedAt: new Date().toISOString() })
+                            });
+                            if (!res.ok) throw { status: res.status };
+                        }
+                        if (currentBin !== binId) return false;
+                        setCloudBase(merged.data);
+                        const check = await readCloud();
+                        if (snapshotKey(check) !== snapshotKey(merged.data) || revision !== cloudRevision) continue;
+                        cloudDirty = false;
+                        lastCloudSaveLabel = currentTimestampLabel();
+                        localStorage.setItem('lastCloudSave', lastCloudSaveLabel);
+                        renderCloudCard();
+                        if (conflictCount) showMessage(`${conflictCount} conflitto/i: copie conservate negli appunti.`);
+                        else if (manual) showMessage('Appunti sincronizzati.');
+                        return true;
                     }
+                    throw new Error('Sincronizzazione da riprovare');
+                } catch (err) {
+                    cloudDirty = true;
+                    renderCloudCard();
+                    showMessage(cloudErrorMessage(err && err.status));
+                    clearTimeout(cloudSaveTimer);
+                    cloudSaveTimer = setTimeout(() => saveToCloud(false), 30000);
+                    return false;
                 }
-            } catch (err) { if (reportErrors) showMessage(cloudErrorMessage(err && err.status)); }
+            })();
+            try { return await cloudSaveInFlight; }
+            finally { cloudSaveInFlight = null; }
+        }
+        function loadFromCloud(manual) { return saveToCloud(manual); }
+        function checkCloudOnStart(reportErrors = false) {
+            if (cloudConfigured()) return saveToCloud(reportErrors);
         }
 
         // Avviso se si chiude con modifiche non ancora salvate sul cloud
         window.addEventListener('beforeunload', (e) => {
+            saveDraftNow();
             if (cloudConfigured() && cloudDirty) {
                 e.preventDefault();
                 e.returnValue = '';
@@ -1781,9 +2268,9 @@
             { title: "2. Creare un appunto", body: `
                 <ul>
                     <li>Scrivi il testo nel riquadro in alto oppure premi <b>🎙️ Detta</b>, consenti l'uso del microfono e parla. Il testo riconosciuto viene aggiunto alla fine di ciò che hai già scritto.</li>
-                    <li>Premi <b>⏹ Ferma dettatura</b> quando hai finito, poi rileggi e correggi il testo prima di salvarlo. Se il browser non supporta la dettatura, puoi continuare a digitare.</li>
+                    <li>Scegli la lingua della dettatura. Dove disponibile puoi attivare il riconoscimento sul dispositivo; il browser potrebbe dover scaricare la lingua. Il testo provvisorio compare sotto i comandi. Premi <b>⏹ Ferma dettatura</b> quando hai finito; puoi annullare l'ultima frase prima di riprendere a scrivere.</li>
                     <li>Scegli una <b>categoria</b> (facoltativa) e aggiungi delle <b>etichette</b> separate da virgola (es: urgente, lavoro).</li>
-                    <li>Premi <b>Salva appunto</b>.</li>
+                    <li>La bozza viene salvata automaticamente su questo dispositivo. Premi <b>Salva appunto</b> per inserirla nella lista.</li>
                 </ul>` },
             { title: "3. Organizzare con l'AI (Gemini)", body: `
                 <p>Il pulsante <b>✨ Aiutami con l'AI</b> invia il testo dell'appunto a Gemini, che propone testo pulito, categoria ed etichette. Richiede una chiave Gemini, da inserire in Impostazioni (⚙️). Senza chiave, l'app funziona in modo manuale.</p>` },
@@ -1816,7 +2303,7 @@
                     <li><b>Vedi archivio (N)</b> mostra gli archiviati; da lì puoi <b>Ripristinare</b> o eliminare.</li>
                 </ul>` },
             { title: "10. Eliminare", body: `
-                <p><b>Elimina</b> cancella l'appunto in modo definitivo (con conferma). Per non perderlo davvero, tienilo in archivio o fai un backup prima.</p>` },
+                <p><b>Elimina</b> sposta l'appunto nel cestino. Da <b>Vedi cestino</b> puoi ripristinarlo entro 30 giorni oppure eliminarne subito il contenuto in modo definitivo. Dopo 30 giorni il contenuto viene eliminato automaticamente alla successiva apertura dell'app.</p>` },
             { title: "11. Backup su file", body: `
                 <p>In Impostazioni (⚙️) → <b>Esporta</b> scarica un file .json con tutti gli appunti; <b>Importa</b> lo ricarica, scegliendo se sostituire o unire ai dati esistenti.</p>` },
             { title: "12. Backup automatico su cloud (JSONBin)", body: `
@@ -1824,8 +2311,8 @@
                     <li>Su jsonbin.io crea una <b>Access Key</b> con permessi di creazione, lettura e aggiornamento dei bin. Puoi anche usare una Master Key già configurata.</li>
                     <li>Inserisci la chiave in Impostazioni. Se hai un <b>Bin ID</b> esistente, inseriscilo; se lo lasci vuoto, l'app crea un nuovo bin privato con i tuoi appunti e mostra il suo ID.</li>
                     <li>Premi <b>Salva configurazione e crea il bin se necessario</b>.</li>
-                    <li>Da quel momento gli appunti si salvano sul cloud a ogni modifica. All'avvio, se il cloud è diverso dal dispositivo, l'app chiede se caricare la versione cloud.</li>
-                    <li><b>Salva ora</b> / <b>Carica da cloud</b> per farlo manualmente; <b>Disconnetti cloud</b> per interrompere.</li>
+                    <li>Da quel momento l'app confronta gli appunti per ID prima del salvataggio e sincronizza anche all'avvio. Se lo stesso appunto è stato modificato su due dispositivi, conserva una copia con la dicitura “Copia da conflitto di sincronizzazione”.</li>
+                    <li><b>Salva ora</b> / <b>Sincronizza ora</b> per farlo manualmente; <b>Disconnetti cloud</b> per interrompere.</li>
                 </ul>` },
             { title: "13. Note e privacy", body: `
                 <p>Gli appunti e le chiavi vengono salvati nel browser di questo dispositivo. Quando usi l'AI, il testo dell'appunto viene inviato a Gemini; quando configuri JSONBin, gli appunti vengono inviati al tuo bin. La dettatura usa il riconoscimento vocale del browser, che in alcuni browser può inviare l'audio a un servizio online. Se svuoti i dati del browser, usa un backup per ripristinarli.</p>` },
@@ -1833,9 +2320,15 @@
                 <ul>
                     <li><b>L'AI non risponde</b>: controlla la chiave Gemini in Impostazioni.</li>
                     <li><b>Errore cloud 401</b>: chiave errata. <b>403</b>: permessi insufficienti. <b>404</b>: Bin ID errato. <b>429</b>: troppe richieste, riprova più tardi.</li>
-                    <li><b>Ho perso un appunto</b>: controlla l'archivio, oppure importa un backup.</li>
+                    <li><b>Ho perso un appunto</b>: controlla archivio e cestino, oppure importa un backup.</li>
                     <li><b>Il promemoria non mi avvisa</b>: assicurati di aver aggiunto e salvato l'evento nel calendario. Il badge nell'appunto non conferma che l'evento sia stato salvato.</li>
-                </ul>` }
+                </ul>` },
+            { title: "15. Liste da spuntare", body: `
+                <p>Nel campo <b>Tipo di appunto</b> scegli <b>Lista da spuntare</b>. Aggiungi le voci con <b>+ Aggiungi voce</b>; il testo dell'appunto è facoltativo. Dopo il salvataggio puoi spuntare le voci direttamente nella lista degli appunti. Per cambiare il testo delle voci premi <b>Modifica</b>. Le liste di Google Keep vengono importate come liste spuntabili.</p>` },
+            { title: "16. Modelli rapidi", body: `
+                <p>Seleziona un modello e premi <b>Applica modello</b> per preparare una nuova bozza. Sono inclusi Riunione, Spesa e Idea. Per creare un modello personale, compila il riquadro e premi <b>Salva come modello personale</b>; poi scegli un nome. I modelli personali sono inclusi nel backup e nella sincronizzazione JSONBin. Puoi eliminarli dal menu con <b>Elimina modello personale</b>.</p>` }
+            ,{ title: "17. Importare da Samsung Notes", body: `
+                <p>In Samsung Notes apri una nota e scegli <b>Salva come file → File di testo</b>. Ripeti per le note da trasferire. In Impostazioni seleziona insieme i file <b>.txt</b>. Il nome del file diventa il titolo dell'appunto, seguito dal testo; le righe che iniziano con ☐, ☑, [ ] o [x] diventano voci spuntabili. Se importi di nuovo un file identico, l'app lo salta. Immagini, disegni, audio e formattazione non sono contenuti nel file di testo; i file Samsung Notes (.sdocx), PDF e Word non sono importati da questa funzione.</p>` }
         ];
 
         let manualBuilt = false;
@@ -1977,6 +2470,7 @@
             URL.revokeObjectURL(url);
 
             note.reminderAt = dt.toISOString();
+            touchNote(note);
             saveNotes();
             closeReminder();
             showMessage('Evento scaricato: aprilo e aggiungilo al calendario per ricevere l’avviso.');
@@ -2000,6 +2494,7 @@
             }
 
             note.reminderAt = dt.toISOString();
+            touchNote(note);
             saveNotes();
             closeReminder();
             showMessage('Evento preparato: salvalo in Google Calendar per ricevere l’avviso.');
@@ -2007,7 +2502,7 @@
 
         function removeReminder() {
             const note = notes.find(n => n.id === reminderNoteId);
-            if (note) { delete note.reminderAt; saveNotes(); }
+            if (note) { delete note.reminderAt; touchNote(note); saveNotes(); }
             closeReminder();
             showMessage("Indicazione rimossa dall'appunto. Eventuali eventi nel calendario restano.");
         }
@@ -2026,19 +2521,15 @@
                     if (typeof data !== 'object' || data === null) { errors++; continue; }
                     if (data.isTrashed) { skipped++; continue; }
 
-                    // Corpo: nota di testo oppure elenco (checklist)
-                    let body = '';
-                    if (typeof data.textContent === 'string') {
-                        body = data.textContent;
-                    } else if (Array.isArray(data.listContent)) {
-                        body = data.listContent
-                            .map(it => (it.isChecked ? '☑ ' : '☐ ') + (it.text || ''))
-                            .join('\n');
-                    }
+                    // Le liste di Keep diventano liste spuntabili anche nell'app.
+                    const checklist = Array.isArray(data.listContent)
+                        ? data.listContent.filter(it => it && typeof it.text === 'string' && it.text.trim())
+                            .map(it => ({ id: newChecklistId(), text: it.text.trim(), done: !!it.isChecked })) : [];
+                    const body = typeof data.textContent === 'string' ? data.textContent : '';
                     const title = (data.title || '').trim();
                     let text = title ? (body ? title + '\n\n' + body : title) : body;
                     text = text.trim();
-                    if (!text) { skipped++; continue; }
+                    if (!text && !checklist.length) { skipped++; continue; }
 
                     const tags = Array.isArray(data.labels)
                         ? data.labels.map(l => (l.name || '').trim().toLowerCase()).filter(Boolean)
@@ -2057,12 +2548,15 @@
                     notes.push({
                         id: id,
                         text: text,
+                        kind: checklist.length ? 'checklist' : 'text',
+                        checklist,
                         category: '',
                         tags: tags,
                         pinned: !!data.isPinned,
                         archived: !!data.isArchived,
                         date: dateLabel,
-                        timestamp: ts
+                        timestamp: ts,
+                        updatedAt: new Date(ts).toISOString()
                     });
                     added++;
                 } catch (e) {
@@ -2079,6 +2573,90 @@
             showMessage(msg + '.');
         }
 
+        // Importazione dei file di testo esportati da Samsung Notes.
+        function decodeSamsungText(buffer) {
+            const bytes = new Uint8Array(buffer);
+            if (!bytes.length) return '';
+            let encoding = 'utf-8';
+            if (bytes[0] === 0xFF && bytes[1] === 0xFE) encoding = 'utf-16le';
+            else if (bytes[0] === 0xFE && bytes[1] === 0xFF) encoding = 'utf-16be';
+            else if (!(bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF)) {
+                let evenZeros = 0, oddZeros = 0;
+                const sample = Math.min(bytes.length, 200);
+                for (let i = 0; i < sample; i++) {
+                    if (bytes[i] === 0) { if (i % 2) oddZeros++; else evenZeros++; }
+                }
+                if (oddZeros > sample / 8 && oddZeros > evenZeros * 2) encoding = 'utf-16le';
+                else if (evenZeros > sample / 8 && evenZeros > oddZeros * 2) encoding = 'utf-16be';
+            }
+            const text = new TextDecoder(encoding, { fatal: true }).decode(bytes).replace(/^\uFEFF/, '');
+            if (text.includes('\u0000')) throw new Error('File non testuale');
+            return text;
+        }
+        function parseSamsungText(fileName, rawText) {
+            const title = fileName.replace(/\.txt$/i, '').trim() || 'Nota Samsung';
+            const lines = rawText.replace(/\r\n?/g, '\n').trim().split('\n');
+            const checklist = [];
+            const otherLines = [];
+            for (const line of lines) {
+                const checked = line.match(/^\s*(?:☑|☒|■|\[[xX]\])\s*(.+)$/u);
+                const unchecked = line.match(/^\s*(?:☐|□|\[\s\])\s*(.+)$/u);
+                const match = checked || unchecked;
+                if (match && match[1].trim()) {
+                    checklist.push({ id: newChecklistId(), text: match[1].trim(), done: Boolean(checked) });
+                } else {
+                    otherLines.push(line);
+                }
+            }
+            const body = otherLines.join('\n').trim();
+            const firstLine = body.split('\n')[0].trim();
+            const text = firstLine.toLocaleLowerCase('it') === title.toLocaleLowerCase('it')
+                ? body : title + (body ? `\n\n${body}` : '');
+            return { text, kind: checklist.length ? 'checklist' : 'text', checklist };
+        }
+        async function importFromSamsung(event) {
+            const files = Array.from(event.target.files || []);
+            if (!files.length) return;
+            const pending = [];
+            let skipped = 0, errors = 0;
+            let nextId = nextNoteId();
+            for (const file of files) {
+                try {
+                    if (!/\.txt$/i.test(file.name) || file.size > 4 * 1024 * 1024) throw new Error('Formato o dimensione non supportati');
+                    const rawText = decodeSamsungText(await file.arrayBuffer());
+                    if (!rawText.trim()) { skipped++; continue; }
+                    const parsed = parseSamsungText(file.name, rawText);
+                    const sameItems = (a, b) => JSON.stringify((a || []).map(item => item.text)) ===
+                        JSON.stringify((b || []).map(item => item.text));
+                    const duplicate = [...notes, ...pending].some(note => !note.deletedAt &&
+                        note.samsungImportName === file.name && note.text === parsed.text &&
+                        sameItems(note.checklist, parsed.checklist));
+                    if (duplicate) { skipped++; continue; }
+                    const now = Date.now();
+                    pending.push({ id: nextId++, text: parsed.text, kind: parsed.kind,
+                        checklist: parsed.checklist, category: '', tags: ['samsung-notes'],
+                        pinned: false, archived: false, date: currentTimestampLabel(),
+                        timestamp: now, updatedAt: new Date(now).toISOString(),
+                        samsungImportName: file.name });
+                } catch (err) { errors++; }
+            }
+            event.target.value = '';
+            if (pending.length) {
+                const previous = notes;
+                notes = [...pending, ...notes];
+                try { saveNotes(); }
+                catch (err) {
+                    notes = previous;
+                    showMessage('Importazione non salvata: spazio del browser insufficiente. Esporta un backup e libera spazio.');
+                    return;
+                }
+            }
+            let message = `Importati ${pending.length} appunti da Samsung Notes`;
+            if (skipped) message += `, ${skipped} già presenti o vuoti`;
+            if (errors) message += `, ${errors} file non leggibili`;
+            showMessage(message + '.');
+        }
+
         // Chiudi le modali cliccando sullo sfondo scuro
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', e => {
@@ -2090,10 +2668,26 @@
             });
         });
 
+        notes = validateImportedData({ notes, categories }).notes;
+        cloudBase = binId ? readCloudBase(binId) : null;
         renderCategories();
+        restoreDraft();
+        ['noteText', 'noteTags'].forEach(id => document.getElementById(id).addEventListener('input', () => {
+            if (id === 'noteText' && !dictationActive) document.getElementById('undoSpeechBtn').disabled = true;
+            scheduleDraftSave();
+        }));
+        document.getElementById('noteCategory').addEventListener('change', scheduleDraftSave);
+        document.getElementById('speechLanguage').value = localStorage.getItem('speechLanguage') || 'it-IT';
+        document.getElementById('speechLanguage').addEventListener('change', event => {
+            localStorage.setItem('speechLanguage', event.target.value);
+        });
+        document.getElementById('speechLocal').addEventListener('change', event => {
+            localStorage.setItem('speechLocal', String(event.target.checked));
+        });
         renderNotes();
         renderTags();
         renderCloudCard();
+        purgeExpiredTrash();
         checkCloudOnStart();
         updateInstallButton();
         initializeDictation();
